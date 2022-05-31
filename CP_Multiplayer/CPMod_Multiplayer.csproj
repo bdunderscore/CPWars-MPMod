@@ -346,8 +346,11 @@
     <Compile Include="src\HarmonyPatches\TutorialDataPatches.cs" />
     <Compile Include="src\HarmonyPatches\UnitManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\UnitPatches.cs" />
+    <Compile Include="src\LobbyManagement\ErrorWindow.cs" />
+    <Compile Include="src\LobbyManagement\MultiplayerLobby.cs" />
+    <Compile Include="src\LobbyManagement\MultiplayerSetupWindow.cs" />
+    <Compile Include="src\LobbyManagement\WindowHelpers.cs" />
     <Compile Include="src\Mod.cs" />
-    <Compile Include="src\MultiplayerLobby.cs" />
     <Compile Include="src\MultiplayerManager.cs" />
     <Compile Include="src\PuppetMaster.cs" />
     <Compile Include="src\Serialization\NetGameState.cs" />
@@ -362,6 +365,7 @@
     <Analyzer Include="..\packages\MessagePackAnalyzer.2.4.14-alpha\analyzers\dotnet\MessagePackAnalyzer.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".gitignore" />
     <Content Include="ext_assemblies\MessagePack.Annotations.dll" />
     <Content Include="ext_assemblies\MessagePack.dll" />
     <Content Include="ext_assemblies\System.Buffers.dll" />
