@@ -1,0 +1,12 @@
+﻿{
+  "Id": "CPMod_Multiplayer",
+  "DisplayName": "Multiplayer",
+  "Author": "bd_",
+  "Version": "1.0.0",
+  "ManagerVersion": "0.24.2.0",
+  "GameVersion": "1.0.0",
+  "Requirements": [],
+  "LoadAfter": [],
+  "AssemblyName": "CPMod_Multiplayer.dll",
+  "EntryMethod": "CPMod_Multiplayer.Mod.Load"
+}

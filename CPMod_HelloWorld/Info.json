@@ -1,0 +1,12 @@
+﻿{
+  "Id": "HelloWorld",
+  "DisplayName": "Test Mod",
+  "Author": "bd_",
+  "Version": "1.0.0",
+  "ManagerVersion": "0.24.2.0",
+  "GameVersion": "1.0.0",
+  "Requirements": [],
+  "LoadAfter": [],
+  "AssemblyName": "CPMod_HelloWorld.dll",
+  "EntryMethod": "CPMod_HelloWorld.ModEntrypoint.Load"
+}
