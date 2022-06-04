@@ -330,9 +330,11 @@
   <ItemGroup>
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyAckStartGameFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyHelloFormatter.cs" />
+    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyMemberDropFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyMemberStateFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyMemberSyncFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyPacketFormatter.cs" />
+    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyPacketInnerFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyStartGameFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetCharaStateFormatter.cs" />
     <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetColorFormatter.cs" />
@@ -356,8 +358,13 @@
     <Compile Include="src\HarmonyPatches\TutorialDataPatches.cs" />
     <Compile Include="src\HarmonyPatches\UnitManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\UnitPatches.cs" />
-    <Compile Include="src\LobbyManagement\CoreLobbyHandler.cs" />
+    <Compile Include="src\LobbyManagement\LobbyManager.cs" />
+    <Compile Include="src\LobbyManagement\RemoteLobby.cs" />
     <Compile Include="src\LobbyManagement\ErrorWindow.cs" />
+    <Compile Include="src\LobbyManagement\HostedLobby.cs" />
+    <Compile Include="src\LobbyManagement\Lobby.cs" />
+    <Compile Include="src\LobbyManagement\LobbyMember.cs" />
+    <Compile Include="src\LobbyManagement\MemberSet.cs" />
     <Compile Include="src\LobbyManagement\SteamInfoLookup.cs" />
     <Compile Include="src\LobbyManagement\SteamLobbyHandler.cs" />
     <Compile Include="src\LobbyManagement\MultiplayerLobbyWindow.cs" />
@@ -366,7 +373,7 @@
     <Compile Include="src\Mod.cs" />
     <Compile Include="src\MultiplayerManager.cs" />
     <Compile Include="src\PuppetMaster.cs" />
-    <Compile Include="src\Serialization\LobbyPacket.cs" />
+    <Compile Include="src\Serialization\LobbyPacketInner.cs" />
     <Compile Include="src\Serialization\NetGameState.cs" />
     <Compile Include="src\Serialization\StaticSerializers.cs" />
     <Compile Include="src\Socket.cs" />

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using CPMod_Multiplayer.Serialization;
 using MessagePack;
 using Steamworks;
 using Unity.Collections.LowLevel.Unsafe;
@@ -30,6 +31,10 @@ namespace CPMod_Multiplayer
 
         public void Dispose()
         {
+            CloseConnection("Disposed");
+        }
+        
+        public void CloseConnection(string reason) {
             if (_disposed) return;
 
             SteamNetworkingSockets.CloseConnection(_connection, 0, "Disposed", false);
@@ -43,6 +48,11 @@ namespace CPMod_Multiplayer
             {
                 _sendQueue.Enqueue(data);
             }
+        }
+
+        public void Send(NetPacket packet)
+        {
+            Send(MessagePackSerializer.Serialize(packet));
         }
 
         private bool TrySend(byte[] data)

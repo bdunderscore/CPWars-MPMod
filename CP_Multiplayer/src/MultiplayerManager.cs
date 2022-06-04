@@ -170,12 +170,12 @@ namespace CPMod_Multiplayer
             
             // Change order so it doesn't pop up over the settings window
             networkBtn.transform.SetSiblingIndex(hajimeru.transform.GetSiblingIndex() + 1);
-
-            var mpWindow = MultiplayerSetupWindow.Create();
             
             networkBtn.GetComponent<Button>().onClick.AddListener(() =>
             {
                 SoundEffectManager.Instance.PlayOneShot("se_in");
+                
+                var mpWindow = MultiplayerSetupWindow.Create();
                 mpWindow.gameObject.SetActive(true);
                 top.gameObject.SetActive(false);
             });

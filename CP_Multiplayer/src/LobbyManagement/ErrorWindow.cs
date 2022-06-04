@@ -37,6 +37,16 @@ namespace CPMod_Multiplayer.LobbyManagement
             instance.message.text = message;
             Instance.gameObject.SetActive(true);
             SoundEffectManager.Instance.PlayOneShot("se_ok");
+
+            if (MultiplayerLobbyWindow.Instance != null)
+            {
+                Destroy(MultiplayerLobbyWindow.Instance.gameObject);
+            }
+
+            if (MultiplayerSetupWindow.Instance != null)
+            {
+                Destroy(MultiplayerSetupWindow.Instance.gameObject);
+            }
         }
     }
 }

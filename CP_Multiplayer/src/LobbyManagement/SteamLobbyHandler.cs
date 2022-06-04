@@ -32,10 +32,6 @@ namespace CPMod_Multiplayer.LobbyManagement
         public delegate void OnChangeDelegate();
         public event OnChangeDelegate OnChange;
 
-        internal void SetMemberState(MemberState state)
-        {
-            OnChange?.Invoke();
-        }
     }
     
     /**

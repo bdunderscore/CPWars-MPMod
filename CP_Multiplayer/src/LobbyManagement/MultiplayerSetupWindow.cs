@@ -1,4 +1,5 @@
-﻿using TMPro;
+﻿using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,8 @@ namespace CPMod_Multiplayer.LobbyManagement
 {
     public class MultiplayerSetupWindow : MonoBehaviour
     {
+        public static MultiplayerSetupWindow Instance;
+        
         private TMP_InputField roomNumberField;
 
         internal static MultiplayerSetupWindow Create()
@@ -19,11 +22,15 @@ namespace CPMod_Multiplayer.LobbyManagement
         
         private void Awake()
         {
+            Instance = this;
             roomNumberField = transform.Find("Base/UI_Controls/Input_RoomNumber").GetComponent<TMP_InputField>();
 
             var top = transform.parent;
 
-            WindowHelpers.SetCloseButton(gameObject);
+            WindowHelpers.SetCloseButton(gameObject).onClick.AddListener(() =>
+            {
+                LobbyManager.CurrentLobby = null;
+            });
             
             transform.Find("Base/UI_Controls/Button_Create").GetComponent<Button>()
                 .onClick.AddListener(OnCreateRoom);
@@ -34,9 +41,16 @@ namespace CPMod_Multiplayer.LobbyManagement
             //roomNumberField.inputValidator = digitValidator;
         }
 
+        private void OnDestroy()
+        {
+            Instance = null;
+        }
+
         void OnCreateRoom()
         {
             var lobby = HostedLobby.CreateLobby();
+
+            LobbyManager.CurrentLobby = lobby;
 
             ConnectToLobby(lobby);
         }
@@ -46,6 +60,8 @@ namespace CPMod_Multiplayer.LobbyManagement
             var address = transform.Find("Base/UI_Controls/Input_RoomNumber").GetComponent<TMP_InputField>().text;
             Lobby lobby = RemoteLobby.ConnectLobby(address);
             
+            LobbyManager.CurrentLobby = lobby;
+            
             ConnectToLobby(lobby);
         }
         
@@ -54,22 +70,19 @@ namespace CPMod_Multiplayer.LobbyManagement
             transform.Find("Base/UI_Controls").gameObject.SetActive(false);
             transform.Find("Base/Text_Connecting").gameObject.SetActive(true);
 
-            lobby.OnError += (msg) =>
-            {
-                gameObject.SetActive(false);
-                ErrorWindow.Show(msg);
-                Destroy(lobby.gameObject);
-            };
-
-            lobby.OnStateChange += () =>
+            Lobby.DelegateOnStateChange callback = null;
+            callback = () =>
             {
                 if (lobby.State != LobbyState.JOINING)
                 {
                     GUIUtility.systemCopyBuffer = lobby.LobbyAddress;
                     gameObject.SetActive(false);
-                    MultiplayerLobbyWindow.Create(lobby);
+                    MultiplayerLobbyWindow.Create();
+                    lobby.OnStateChange -= callback;
                 }
             };
+            
+            lobby.OnStateChange += callback;
         }
     }
 }
