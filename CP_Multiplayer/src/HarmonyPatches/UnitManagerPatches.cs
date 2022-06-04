@@ -1,5 +1,8 @@
 ﻿using HarmonyLib;
 
+// ReSharper disable UnusedType.Global
+// ReSharper disable UnusedMember.Local
+
 namespace CPMod_Multiplayer.HarmonyPatches
 {
     [HarmonyPatch(typeof(UnitManager), nameof(UnitManager.CheckClear))]

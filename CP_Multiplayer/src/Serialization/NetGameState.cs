@@ -12,6 +12,7 @@ namespace CPMod_Multiplayer.Serialization
     [MessagePack.Union(6, typeof(NetFrameComplete))]
     [MessagePack.Union(7, typeof(NetLogCreateMessage))]
     [MessagePack.Union(8, typeof(NetLogCreateGetMessage))]
+    [MessagePack.Union(9, typeof(LobbyPacket))]
     public interface NetPacket
     {
         

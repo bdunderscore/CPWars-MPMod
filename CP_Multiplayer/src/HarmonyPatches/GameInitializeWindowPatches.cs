@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using CPMod_Multiplayer.LobbyManagement;
+using HarmonyLib;
 
 // ReSharper disable UnusedType.Global
 // ReSharper disable UnusedMember.Local
@@ -12,7 +13,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
         
         static bool Prefix(GameInitializeWindow __instance)
         {
-            var mpLobby = __instance.GetComponent<MultiplayerLobby>();
+            var mpLobby = __instance.GetComponent<MultiplayerLobbyWindow>();
 
             if (mpLobby != null && !noIntercept)
             {

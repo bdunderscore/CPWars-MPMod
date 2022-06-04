@@ -30,20 +30,46 @@ namespace CPMod_Multiplayer.LobbyManagement
             transform.Find("Base/UI_Controls/Button_Join").GetComponent<Button>()
                 .onClick.AddListener(OnJoinRoom);
 
-            var digitValidator = ScriptableObject.CreateInstance<TMP_DigitValidator>();
-            roomNumberField.inputValidator = digitValidator;
+            //var digitValidator = ScriptableObject.CreateInstance<TMP_DigitValidator>();
+            //roomNumberField.inputValidator = digitValidator;
         }
 
         void OnCreateRoom()
         {
-            gameObject.SetActive(false);
-            MultiplayerLobby.Create().gameObject.SetActive(true);
+            var lobby = HostedLobby.CreateLobby();
+
+            ConnectToLobby(lobby);
         }
 
         void OnJoinRoom()
         {
-            gameObject.SetActive(false);
-            MultiplayerLobby.Create().gameObject.SetActive(true);
+            var address = transform.Find("Base/UI_Controls/Input_RoomNumber").GetComponent<TMP_InputField>().text;
+            Lobby lobby = RemoteLobby.ConnectLobby(address);
+            
+            ConnectToLobby(lobby);
+        }
+        
+        private void ConnectToLobby(Lobby lobby)
+        {
+            transform.Find("Base/UI_Controls").gameObject.SetActive(false);
+            transform.Find("Base/Text_Connecting").gameObject.SetActive(true);
+
+            lobby.OnError += (msg) =>
+            {
+                gameObject.SetActive(false);
+                ErrorWindow.Show(msg);
+                Destroy(lobby.gameObject);
+            };
+
+            lobby.OnStateChange += () =>
+            {
+                if (lobby.State != LobbyState.JOINING)
+                {
+                    GUIUtility.systemCopyBuffer = lobby.LobbyAddress;
+                    gameObject.SetActive(false);
+                    MultiplayerLobbyWindow.Create(lobby);
+                }
+            };
         }
     }
 }
