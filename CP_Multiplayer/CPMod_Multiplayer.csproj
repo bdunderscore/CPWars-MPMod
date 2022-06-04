@@ -328,27 +328,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyAckStartGameFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyHelloFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyMemberDropFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyMemberStateFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyMemberSyncFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyPacketFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyPacketInnerFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_LobbyStartGameFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetCharaStateFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetColorFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetFrameCompleteFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetFrameStartFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetGameInitFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetLogCreateGetMessageFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetLogCreateMessageFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetPacketFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetRoomStateFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetUnitDeathFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetUnitPopFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Formatters_CPMod_Multiplayer_Serialization_NetUnitStateFormatter.cs" />
-    <Compile Include="mpc_generated\CPMod_Multiplayer_MPC_Resolvers_GeneratedResolver.cs" />
+    <Compile Include="mpc_generated\*.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\HarmonyPatches\GameInitializeWindowPatches.cs" />
     <Compile Include="src\HarmonyPatches\GameManagerPatches.cs" />
