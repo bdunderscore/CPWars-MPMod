@@ -5,6 +5,7 @@ using CPMod_Multiplayer.Serialization;
 using MessagePack;
 using Steamworks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace CPMod_Multiplayer.LobbyManagement
 {
@@ -12,6 +13,7 @@ namespace CPMod_Multiplayer.LobbyManagement
     {
         public override LobbyState State { get; protected set; } = LobbyState.JOINING;
         public bool LobbyOpen { get; set; } = false;
+        public override bool IsHost => true;
 
         private HSteamListenSocket _listenSocket;
 
@@ -19,6 +21,8 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         private Dictionary<HSteamNetConnection, LobbyMember> _handleToMember =
             new Dictionary<HSteamNetConnection, LobbyMember>();
+
+        private bool GameActive = false;
 
         HostedLobby()
         {
@@ -50,9 +54,7 @@ namespace CPMod_Multiplayer.LobbyManagement
                     SteamInfoLookup.LookupSteamInfo(remoteIdentity.GetSteamID(), (id, name) =>
                     {
                         member.MemberState.displayName = name;
-                        Mod.logger.Log("*** LSI ***");
                         member.RaiseOnChange();
-                        Mod.logger.Log("*** Post-LSI ***");
                     });
                     
                     member.OnChange += OnMemberChange;
@@ -79,7 +81,6 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         private void OnMemberChange(LobbyMember member)
         {
-            Mod.logger.Log($"[HostedLobby] OnMemberChange {member.DisplayName} d/c {member.Disconnected}");
             if (member.Disconnected)
             {
                 return;
@@ -99,25 +100,9 @@ namespace CPMod_Multiplayer.LobbyManagement
         {
             try
             {
-                foreach (var member in Members)
+                if (!GameActive)
                 {
-                    if (member.Socket == null) continue;
-                    
-                    member.Socket.Flush();
-                    
-                    if (member.Socket.ErrorState)
-                    {
-                        _eventQueue.Enqueue(() =>
-                        {
-                            Members.Part(member.MemberState.teamIndex);
-                            _handleToMember.Remove(member.Socket.Handle);
-                        });
-                    }
-
-                    if (member.Socket.TryReceive(out var pkt))
-                    {
-                        HandlePacket(member, pkt);
-                    }
+                    PollSockets();
                 }
 
                 base.Update();
@@ -125,6 +110,30 @@ namespace CPMod_Multiplayer.LobbyManagement
             catch (Exception e)
             {
                 Mod.LogException("[HostedLobby] Update", e);
+            }
+        }
+
+        private void PollSockets()
+        {
+            foreach (var member in Members)
+            {
+                if (member.Socket == null) continue;
+
+                member.Socket.Flush();
+
+                if (member.Socket.ErrorState)
+                {
+                    _eventQueue.Enqueue(() =>
+                    {
+                        Members.Part(member.MemberState.teamIndex);
+                        _handleToMember.Remove(member.Socket.Handle);
+                    });
+                }
+
+                if (member.Socket.TryReceive(out var pkt))
+                {
+                    HandlePacket(member, pkt);
+                }
             }
         }
 
@@ -221,17 +230,6 @@ namespace CPMod_Multiplayer.LobbyManagement
                 _listenSocket = SteamNetworkingSockets.CreateListenSocketP2P(LOBBY_PORT, 0,
                     Array.Empty<SteamNetworkingConfigValue_t>());
 
-                Mod.logger.Log($"Listen socket: {_listenSocket}");
-                if (SteamNetworkingSockets.GetListenSocketAddress(_listenSocket, out var addr))
-                {
-                    addr.ToString(out var addrStr, true);
-                    Mod.logger.Log($"Listen address: {addrStr}");
-                }
-                else
-                {
-                    Mod.logger.Log("Cannot convert listen address");
-                }
-
                 identity.ToString(out var identityStr);
                 LobbyAddress = identityStr;
 
@@ -286,6 +284,26 @@ namespace CPMod_Multiplayer.LobbyManagement
                     break;
                 }
             }
+        }
+        
+        public override void StartGame()
+        {
+            if (GameActive) return;
+            
+            var pkt = MessagePackSerializer.Serialize<NetPacket>(new LobbyStartGame().ToNetPacket());
+            foreach (var member in Members)
+            {
+                member.Socket?.Send(pkt);
+            }
+
+            GameActive = true;
+            
+            MainSceneManager.Instance.StartGame();
+        }
+
+        public override void OnGameOver()
+        {
+            GameActive = false;
         }
     }
 }

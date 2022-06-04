@@ -44,7 +44,7 @@ namespace CPMod_Multiplayer
 
         public void Send(byte[] data)
         {
-            if (!TrySend(data))
+            if (!_fault && !TrySend(data))
             {
                 _sendQueue.Enqueue(data);
             }

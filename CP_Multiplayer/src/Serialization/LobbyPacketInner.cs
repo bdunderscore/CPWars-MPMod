@@ -104,12 +104,9 @@ namespace CPMod_Multiplayer.Serialization
     [MessagePackObject]
     public class LobbyStartGame : LobbyPacketInner
     {
-        [Key(0)]
-        public int teamIndex;
-
         public override string ToString()
         {
-            return $"[LobbyStartGame {nameof(teamIndex)}: {teamIndex}]";
+            return $"[LobbyStartGame]";
         }
     }
 

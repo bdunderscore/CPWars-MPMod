@@ -58,16 +58,16 @@ namespace CPMod_Multiplayer
 
         static bool OnToggle(UnityModManager.ModEntry modEntry, bool value)
         {
+            return value;
+            /*
             try
             {
-                MultiplayerManager.MultiplayerSession = value;
-
                 return true;
             } catch (Exception e)
             {
                 logger.LogException("Failed to patch/unpatch game code", e);
                 return false;
-            }
+            }*/
         }
 
         internal static void LogException(string message, Exception e)

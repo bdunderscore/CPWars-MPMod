@@ -13,16 +13,19 @@ namespace CPMod_Multiplayer.LobbyManagement
     {
         CONNECT_PENDING,
         HELLO_PENDING,
-        INITIAL_SYNC_PENDING,
-        STANDBY
+        STANDBY,
+        IN_GAME
     }
 
     public class RemoteLobby : Lobby
     {
         private RemoteLobbyState _internalState = RemoteLobbyState.CONNECT_PENDING;
+        public override bool IsHost => false;
         public override LobbyState State { get; protected set; } = LobbyState.JOINING;
 
         private Socket _socket;
+
+        public Socket Socket => _socket;
         
         private Callback<SteamNetConnectionStatusChangedCallback_t> _connectionStatusChangedCallback;
 
@@ -36,7 +39,7 @@ namespace CPMod_Multiplayer.LobbyManagement
         {
             base.Update();
 
-            if (_internalState == RemoteLobbyState.CONNECT_PENDING) return;
+            if (_internalState == RemoteLobbyState.CONNECT_PENDING || _internalState == RemoteLobbyState.IN_GAME) return;
 
             _socket?.Flush();
 
@@ -97,6 +100,10 @@ namespace CPMod_Multiplayer.LobbyManagement
                                     }
                                 }
                                 break;
+                            case LobbyStartGame _:
+                                _internalState = RemoteLobbyState.IN_GAME;
+                                MainSceneManager.Instance.StartGame();
+                                break;
                             default:
                                 Mod.logger.Warning($"Unexpected message: {msg}");
                                 break;
@@ -107,10 +114,14 @@ namespace CPMod_Multiplayer.LobbyManagement
                 }
             }
         }
-        
+
+        public override void OnGameOver()
+        {
+            _internalState = RemoteLobbyState.STANDBY;
+        }
+
         private void OnSelfChange(LobbyMember _)
         {
-            Mod.logger.Log("OnSelfChange: Propagating change");
             _socket.Send(new LobbyMemberSync() { syncMember = Members.Self.MemberState }.ToNetPacket());
         }
 
@@ -167,7 +178,6 @@ namespace CPMod_Multiplayer.LobbyManagement
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected:
                     if (State == LobbyState.JOINING)
                     {
-                        Mod.logger.Log("[RemoteLobby] Connected socket");
                         _internalState = RemoteLobbyState.HELLO_PENDING;
                     }
                     break;

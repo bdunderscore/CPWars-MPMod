@@ -26,25 +26,13 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         internal static MultiplayerLobbyWindow Create()
         {
-            Lobby lobby = LobbyManager.CurrentLobby;
             try
             {
                 var root = GameObject.Find("EventSystem").transform.parent;
 
                 var prefabAsset = Mod.assetBundle.LoadAsset<GameObject>("MultiplayerLobbyWindow");
-                Mod.logger.Log($"Loading MultiplayerLobbyWindow from asset bundle: {prefabAsset}");
                 var mpLobbyWindow = Instantiate(prefabAsset, root, false).AddComponent<MultiplayerLobbyWindow>();
-                mpLobbyWindow._lobby = lobby;
-                mpLobbyWindow.transform.Find("Base/LobbyNumber").GetComponent<TextMeshProUGUI>().text =
-                    lobby.LobbyAddress;
                 
-                WindowHelpers.SetCloseButton(mpLobbyWindow.gameObject).onClick.AddListener(() =>
-                {
-                    LobbyManager.CurrentLobby = null;
-                });
-                
-                Mod.logger.Log($"[Create MPLobbyWindow] _lobby: {mpLobbyWindow._lobby} lobby: {lobby}");
-
                 return mpLobbyWindow;
             }
             catch (Exception e)
@@ -56,7 +44,7 @@ namespace CPMod_Multiplayer.LobbyManagement
                 throw e;
             }
         }
-        
+
         private void OnEnable()
         {
             // TODO - reset state
@@ -76,15 +64,26 @@ namespace CPMod_Multiplayer.LobbyManagement
             Instance = this;
             try
             {
-                Mod.logger.Log("[LobbyWindow] Awake: Start active=" + isActiveAndEnabled);
+                _lobby = LobbyManager.CurrentLobby;
+                
+                transform.Find("Base/LobbyNumber").GetComponent<TextMeshProUGUI>().text =
+                    _lobby.LobbyAddress;
+                
+                WindowHelpers.SetCloseButton(gameObject).onClick.AddListener(() =>
+                {
+                    LobbyManager.CurrentLobby = null;
+                });
+                
+                transform.Find("Base/Button_Start").GetComponent<Button>().onClick.AddListener(() =>
+                {
+                    _lobby.StartGame();
+                });
                 
                 var lobbyMemberTemplateTransform = transform.Find("Base/Lobby/Scroll View/Viewport/Content/LobbyMember");
-                Mod.logger.Log($"lobbyMemberTemplateTransform: {lobbyMemberTemplateTransform}");
                 lobbyMemberTemplate = lobbyMemberTemplateTransform.gameObject;
                 lobbyMemberTemplate.SetActive(false);
 
                 var clubSelectTransform = transform.Find("Club");
-                Mod.logger.Log($"clubSelectTransform: {clubSelectTransform}");
                 clubSelect = clubSelectTransform.gameObject;
 
                 stubInitWindow = GetComponent<GameInitializeWindow>();
@@ -104,8 +103,6 @@ namespace CPMod_Multiplayer.LobbyManagement
                         }
                     });
                 }
-                
-                Mod.logger.Log("[LobbyWindow] Awake: Done");
             }
             catch (Exception e)
             {
@@ -124,13 +121,17 @@ namespace CPMod_Multiplayer.LobbyManagement
                 {
                     OnMemberJoin(member);
                 }
-
-                Mod.logger.Log("[LobbyWindow] Start: Done");
             }
             catch (Exception e)
             {
                 Mod.logger.LogException("[LobbyWindow] Start", e);
             }
+        }
+
+        private void OnDestroy()
+        {
+            _lobby.Members.OnJoin -= OnMemberJoin;
+            _lobby.Members.OnPart -= OnMemberPart;
         }
 
         void OnMemberJoin(LobbyMember member)
@@ -218,17 +219,13 @@ namespace CPMod_Multiplayer.LobbyManagement
         {
             try
             {
-                Mod.logger.Log($"[MultiplayerPlayerSlot] Awake {gameObject.name} active=" + isActiveAndEnabled);
                 txtPlayerName = transform.Find("Content/PlayerName").GetComponent<TextMeshProUGUI>();
-                Mod.logger.Log("txtPlayerName: " + txtPlayerName);
 
                 clubSelectButton = transform.Find("Content/ClubSelect").GetComponent<Button>();
-                Mod.logger.Log("clubSelectButton: " + clubSelectButton);
                 
                 var sampleLevelButton = GameObject.Find("EventSystem").transform.parent
                     .Find("GameInitializeWindow/Base/Member/Slots/Slot/Level/Text_Lv")
                     .GetComponent<TextMeshProUGUI>();
-                Mod.logger.Log("sampleLevelButton: " + sampleLevelButton);
 
                 slots = new List<GameObject>();
                 foreach (Transform t in transform.Find("Content/CharaSlots"))
@@ -239,7 +236,6 @@ namespace CPMod_Multiplayer.LobbyManagement
                     lvText.font = sampleLevelButton.font;
                     lvText.fontSharedMaterial = sampleLevelButton.fontSharedMaterial;
                 }
-                Mod.logger.Log("[MultiplayerPlayerSlot] Awake: Done");
             }
             catch (Exception e)
             {
@@ -251,8 +247,6 @@ namespace CPMod_Multiplayer.LobbyManagement
         void Start() {
             try
             {
-                Mod.logger.Log("[MultiplayerPlayerSlot] Start");
-
                 clubSelectButton.interactable = isSelf;
                 if (isSelf)
                 {
@@ -262,13 +256,16 @@ namespace CPMod_Multiplayer.LobbyManagement
                 Member.OnChange += OnMemberChange;
 
                 OnMemberChange(Member);
-                
-                Mod.logger.Log("[MultiplayerPlayerSlot] Start complete");
             }
             catch (Exception e)
             {
                 Mod.LogException("[LobbyPlayerSlot] Start", e);
             }
+        }
+
+        private void OnDestroy()
+        {
+            Member.OnChange -= OnMemberChange;
         }
 
         void Update()
@@ -281,7 +278,6 @@ namespace CPMod_Multiplayer.LobbyManagement
             txtPlayerName.text = Member.DisplayName;
             SetClubDisplay(Member.MemberState.selectedClub);
             UpdateSlotIcons();
-            Mod.logger.Log($"[OnMemberChange] playername: {txtPlayerName.text}");
         }
 
         public void OnSetClub(string clubName)
@@ -304,13 +300,10 @@ namespace CPMod_Multiplayer.LobbyManagement
                 t.gameObject.SetActive(false);
             }
             child.gameObject.SetActive(true);
-
-            Mod.logger.Log($"Changed active club: {child}");
         }
 
         public void UpdateSlotIcons()
         {
-            Mod.logger.Log($"stubInitWindow={stubInitWindow} MSM.Instance={MainSceneManager.Instance} f_sc={f_selectedCharacter} f_slotList={f_slotList}");
             var oldSelected = (List<string>) f_selectedCharacter.GetValue(MainSceneManager.Instance);
             try
             {

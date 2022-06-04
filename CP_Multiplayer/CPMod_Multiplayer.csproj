@@ -352,6 +352,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\HarmonyPatches\GameInitializeWindowPatches.cs" />
     <Compile Include="src\HarmonyPatches\GameManagerPatches.cs" />
+    <Compile Include="src\HarmonyPatches\GameSetupFlow.cs" />
     <Compile Include="src\HarmonyPatches\LogManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\MainSceneManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\SteamManagerPatches.cs" />
@@ -372,6 +373,7 @@
     <Compile Include="src\LobbyManagement\WindowHelpers.cs" />
     <Compile Include="src\Mod.cs" />
     <Compile Include="src\MultiplayerManager.cs" />
+    <Compile Include="src\PuppetClient.cs" />
     <Compile Include="src\PuppetMaster.cs" />
     <Compile Include="src\Serialization\LobbyPacketInner.cs" />
     <Compile Include="src\Serialization\NetGameState.cs" />

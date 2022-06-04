@@ -19,8 +19,8 @@ namespace CPMod_Multiplayer
         public static MultiplayerManager instance;
         public static bool SteamNetworkAvailable = false;
 
-        public static bool MultiplayerSession = false;
-        public static bool MultiplayerFollower = false;
+        public static bool MultiplayerSession => LobbyManager.CurrentLobby != null;
+        public static bool MultiplayerFollower => MultiplayerSession && !LobbyManager.CurrentLobby.IsHost;
 
         public static Boolean SuppressGameLogic => MultiplayerFollower;
         public static Boolean EveryoneIsPlayer => MultiplayerSession;
@@ -88,11 +88,10 @@ namespace CPMod_Multiplayer
             if (currentGameScene.IsValid()) return;
             
             Scene gameScene = SceneManager.GetSceneByName("GameScene");
-            if (gameScene != null && gameScene.IsValid())
+            if (gameScene.IsValid())
             {
                 currentGameScene = gameScene;
                 
-                MultiplayerFollower = MultiplayerSession = false;
                 var activeScene = SceneManager.GetActiveScene();
                 try
                 {
@@ -108,11 +107,10 @@ namespace CPMod_Multiplayer
             }
 
             Scene titleScene = SceneManager.GetSceneByName("TitleScene");
-            if (titleScene != null && titleScene.IsValid())
+            if (titleScene.IsValid())
             {
                 currentGameScene = titleScene;
                 
-                MultiplayerFollower = MultiplayerSession = false;
                 var activeScene = SceneManager.GetActiveScene();
                 try
                 {
@@ -132,20 +130,25 @@ namespace CPMod_Multiplayer
 
         void OnEnterGameScene()
         {
-            var netPuppet = new GameObject("NetworkPuppet");
-            if (!isPuppet)
+            var lobby = LobbyManager.CurrentLobby;
+            
+            Mod.logger.Log($"[OnEnterGameScene] lobbypresent={lobby != null} isHost={lobby?.IsHost}");
+
+            if (!MultiplayerSession)
             {
-                Mod.logger.Log("Creating puppet master");
+                return;
+            }
+            var netPuppet = new GameObject("NetworkPuppet");
+
+            if (!MultiplayerFollower)
+            {
                 netPuppet.AddComponent<PuppetMaster>();
                 netPuppet.name = "NetworkPuppetMaster";
-                MultiplayerSession = true;
             }
             else
             {
                 Mod.logger.Log("Creating puppet client");
-                netPuppet.AddComponent<PuppetStrings>();
-                MultiplayerSession = true;
-                MultiplayerFollower = true;
+                netPuppet.AddComponent<PuppetClient>();
             }
         }
 
@@ -179,6 +182,13 @@ namespace CPMod_Multiplayer
                 mpWindow.gameObject.SetActive(true);
                 top.gameObject.SetActive(false);
             });
+
+            if (LobbyManager.CurrentLobby != null)
+            {
+                top.gameObject.SetActive(false);
+                LobbyManager.CurrentLobby.OnGameOver();
+                MultiplayerLobbyWindow.Create();
+            }
             
             Mod.logger.Log("Title screen scene injection complete");
         }

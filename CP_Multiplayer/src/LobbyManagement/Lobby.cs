@@ -16,6 +16,8 @@ namespace CPMod_Multiplayer.LobbyManagement
     {
         protected const int LOBBY_PORT = 0;
 
+        public abstract bool IsHost { get; }
+
         public abstract LobbyState State { get; protected set; }
 
         public String LobbyAddress { get; protected set; }
@@ -53,6 +55,15 @@ namespace CPMod_Multiplayer.LobbyManagement
         protected virtual void Update()
         {
             while (_eventQueue.Count > 0) _eventQueue.Dequeue()();
+        }
+
+        public virtual void StartGame()
+        {
+        }
+
+        public virtual void OnGameOver()
+        {
+            
         }
     }
 }

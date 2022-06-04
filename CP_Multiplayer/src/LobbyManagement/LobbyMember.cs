@@ -52,7 +52,6 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         public void RaiseOnChange()
         {
-            Mod.logger.Log("RaiseOnChange: " + DisplayName + " ev != null? " + (OnChange != null));
             OnChange?.Invoke(this);
         }
     }
