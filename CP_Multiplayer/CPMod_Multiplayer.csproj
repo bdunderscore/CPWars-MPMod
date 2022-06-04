@@ -380,6 +380,7 @@
     <Content Include="ext_assemblies\System.Threading.Tasks.Extensions.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="mpc_generated" />
     <Folder Include="src\LobbyManagement\Protocol" />
   </ItemGroup>
   <ItemGroup>

@@ -111,8 +111,6 @@ namespace CPMod_Multiplayer.HarmonyPatches
 
             foreach (var member in LobbyManager.CurrentLobby.Members)
             {
-                Mod.logger.Log($"Member {member.DisplayName} initial roster: {member.MemberState.characters.Join(delimiter: ",")}");
-                
                 foreach (var character in member.MemberState.characters)
                 {
                     Mod.logger.Log($"initial draft for {member.MemberState.displayName}: '{character}'");
