@@ -18,7 +18,7 @@ namespace CPMod_Multiplayer
 
         public int Add(T u)
         {
-            Mod.logger.Log($"Add mapping {u} => {idToUnit.Count}");
+            //Mod.logger.Log($"Add mapping {u} => {idToUnit.Count}");
             idToUnit.Add(u);
             unitToId.Add(u, idToUnit.Count - 1);
             return idToUnit.Count - 1;
@@ -77,6 +77,18 @@ namespace CPMod_Multiplayer
         public bool TryGet(T u, out int index)
         {
             return unitToId.TryGetValue(u, out index);
+        }
+
+        public bool TryGet(int index, out T u)
+        {
+            if (idToUnit.Count <= index || idToUnit[index] == null)
+            {
+                u = default(T);
+                return false;
+            }
+
+            u = idToUnit[index];
+            return true;
         }
         
         public int Destroy(T u)
@@ -154,7 +166,7 @@ namespace CPMod_Multiplayer
             instance = this;
             
             // Debugging
-            OnMessageTransmit += (packet) => Mod.logger.Log($"PuppetMaster: {packet}");
+            //OnMessageTransmit += (packet) => Mod.logger.Log($"PuppetMaster: {packet}");
 
             GameManager_Tick.AfterTick += AfterTick;
 
@@ -175,92 +187,14 @@ namespace CPMod_Multiplayer
         {
             if (_initial)
             {
-                InitIndexes();
+                InitialSync();
 
-                foreach (var member in _connections.Values)
-                {
-                    var socket = member.Socket;
-                    Mod.logger.Log($"Starting full sync");
-
-                    try
-                    {
-                        FullSync((pkt) =>
-                        {
-                            var serialized = MessagePackSerializer.Serialize(pkt);
-                            Mod.logger.Log($"Send packet for full sync: {pkt}");
-                            socket.Send(serialized);
-                        });
-                    }
-                    catch (Exception e)
-                    {
-                        Mod.logger.LogException("Failed to perform full sync", e);
-                        Mod.logger.Log(e.StackTrace);
-                        socket.Dispose();
-                        _connections.Remove(socket.Handle);
-
-                        Exception inner = e.InnerException;
-                        while (inner != null)
-                        {
-                            Mod.logger.LogException("Caused by", inner);
-                            Mod.logger.Log(inner.StackTrace);
-                            inner = inner.InnerException;
-                        }
-                    }
-                }
-                
                 _initial = false;
             }
             
             if (_requestIncrementalSync && _connections.Count != 0)
             {
-                Mod.logger.Log("Starting incremental sync");
-                try
-                {
-                    List<NetPacket> packets = new List<NetPacket>();
-
-                    SendFrameStart(packets.Add);
-
-                    foreach (var room in RoomManager.Instance.Rooms)
-                    {
-                        SendRoom(packets.Add, room);
-                    }
-
-                    foreach (var unit in UnitManager.Instance.Units.Values)
-                    {
-                        if (!unitMapping.TryGet(unit, out _))
-                        {
-                            SendUnitPop(packets.Add, unit);
-                        }
-
-                        SendUnitState(packets.Add, unit);
-                    }
-                    
-                    foreach (var adhocPacket in adhocPackets)
-                    {
-                        packets.Add(adhocPacket);
-                    }
-                    adhocPackets.Clear();
-
-                    SendFrameComplete(packets.Add);
-                    
-                    foreach (var member in _connections.Values)
-                    {
-                        int byteCount = 0;
-                        foreach (var pkt in packets)
-                        {
-                            var serialized = MessagePackSerializer.Serialize(pkt);
-                            Mod.logger.Log($"Send packet for incremental sync: {pkt}");
-                            member.Socket.Send(serialized);
-                            byteCount += serialized.Length;
-                        }
-                        
-                        Mod.logger.Log($"Sent {packets.Count} packets for incremental sync, {byteCount} bytes");
-                    }
-                }
-                catch (Exception e)
-                {
-                    Mod.LogException("Incremental sync", e);
-                }
+                DoIncrementalSync();
 
                 _requestIncrementalSync = false;
             }
@@ -268,12 +202,165 @@ namespace CPMod_Multiplayer
             foreach (var member in _connections.Values)
             {
                 member.Socket.Flush();
+                PollMessages(member);
+            }
+        }
+
+        private void PollMessages(LobbyMember member)
+        {
+            if (member.Socket == null) return;
+
+            for (int i = 0; i < 10 && member.Socket.TryReceive(out var pkt); i++)
+            {
+                try
+                {
+                    var msg = MessagePackSerializer.Deserialize<NetPacket>(pkt);
+
+                    HandleClientMessage(member, msg);
+                }
+                catch (Exception e)
+                {
+                    Mod.LogException("[PollMessages] Error handling messages from client", e);
+                }
+            }
+        }
+
+        private void HandleClientMessage(LobbyMember member, NetPacket msg)
+        {
+            Mod.logger.Log($"PuppetMaster: received {msg}");
+            switch (msg)
+            {
+                case NetUnitOrders orders:
+                {
+                    if (!unitMapping.TryGet(orders.unitId, out var unit))
+                    {
+                        Mod.logger.Log($"Ignoring orders for unknown unit {orders.unitId}");
+                        return;
+                    }
+
+                    if (unit.Team != member.MemberState.teamIndex + 1)
+                    {
+                        Mod.logger.Log($"Ignoring orders for non-owned unit {orders.unitId}");
+                        return;
+                    }
+
+                    if (orders.command != null)
+                    {
+                        unit.SetCommand(orders.command);
+                    }
+
+                    if (orders.moveTo.HasValue)
+                    {
+                        if (roomMapping.TryGetValue(orders.moveTo.Value, out var room))
+                        {
+                            unit.Move(room);                            
+                        }
+                        else
+                        {
+                            Mod.logger.Log($"Ignoring unknown room index {orders.moveTo.Value} in move order");
+                        }
+                    }
+
+                    break;
+                }
+                default:
+                    Mod.logger.Log($"Ignoring unexpected message type {msg.GetType()}");
+                    break;
+            }
+        }
+
+        private void DoIncrementalSync()
+        {
+            //Mod.logger.Log("Starting incremental sync");
+            try
+            {
+                List<NetPacket> packets = new List<NetPacket>();
+
+                SendFrameStart(packets.Add);
+
+                foreach (var room in RoomManager.Instance.Rooms)
+                {
+                    SendRoom(packets.Add, room);
+                }
+
+                foreach (var unit in UnitManager.Instance.Units.Values)
+                {
+                    if (!unitMapping.TryGet(unit, out _))
+                    {
+                        SendUnitPop(packets.Add, unit);
+                    }
+
+                    SendUnitState(packets.Add, unit);
+                }
+
+                foreach (var adhocPacket in adhocPackets)
+                {
+                    packets.Add(adhocPacket);
+                }
+
+                adhocPackets.Clear();
+
+                SendFrameComplete(packets.Add);
+
+                foreach (var member in _connections.Values)
+                {
+                    int byteCount = 0;
+                    foreach (var pkt in packets)
+                    {
+                        var serialized = MessagePackSerializer.Serialize(pkt);
+                        //Mod.logger.Log($"Send packet for incremental sync: {pkt}");
+                        member.Socket.Send(serialized);
+                        byteCount += serialized.Length;
+                    }
+
+                    Mod.logger.Log($"Sent {packets.Count} packets for incremental sync, {byteCount} bytes");
+                }
+            }
+            catch (Exception e)
+            {
+                Mod.LogException("Incremental sync", e);
+            }
+        }
+
+        private void InitialSync()
+        {
+            InitIndexes();
+
+            foreach (var member in _connections.Values)
+            {
+                var socket = member.Socket;
+                Mod.logger.Log($"Starting full sync");
+
+                try
+                {
+                    FullSync((pkt) =>
+                    {
+                        var serialized = MessagePackSerializer.Serialize(pkt);
+                        //Mod.logger.Log($"Send packet for full sync: {pkt}");
+                        socket.Send(serialized);
+                    });
+                }
+                catch (Exception e)
+                {
+                    Mod.logger.LogException("Failed to perform full sync", e);
+                    Mod.logger.Log(e.StackTrace);
+                    socket.Dispose();
+                    _connections.Remove(socket.Handle);
+
+                    Exception inner = e.InnerException;
+                    while (inner != null)
+                    {
+                        Mod.logger.LogException("Caused by", inner);
+                        Mod.logger.Log(inner.StackTrace);
+                        inner = inner.InnerException;
+                    }
+                }
             }
         }
 
         private void AfterTick()
         {
-            Mod.logger.Log("AfterTick: Request incremental sync");
+            //Mod.logger.Log("AfterTick: Request incremental sync");
             _requestIncrementalSync = true;
         }
 

@@ -72,7 +72,7 @@ namespace CPMod_Multiplayer
                 {
                     var msg = MessagePackSerializer.Deserialize<NetPacket>(pkt);
                     IncomingPackets.Enqueue(msg);
-                    Mod.logger.Log("Received packet: " + msg);
+                    //Mod.logger.Log("Received packet: " + msg);
                 }
                 catch (Exception e)
                 {
@@ -235,7 +235,7 @@ namespace CPMod_Multiplayer
                 exp = charaState.exp,
             };
             
-            Mod.logger.Log($"Received character: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
+            //Mod.logger.Log($"Received character: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
             CharacterManager.Instance.CharacterList.Add(c.name, c);
             CharacterManager.Instance.NameList.Add(c.name);
             charaMapping.Set(charaState.charaIndex, c.name);
@@ -245,12 +245,12 @@ namespace CPMod_Multiplayer
         {
             var c = CharacterManager.Instance.CharacterList[charaMapping.Get(unitPop.charaIndex)];
             
-            Mod.logger.Log($"UnitPop before: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
+            //Mod.logger.Log($"UnitPop before: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
             
             var unit = GameManager.Instance.PopCharacter(c.name, unitPop.playerIndex);
             unitMapping.Set(unitPop.unitIndex, unit);
             
-            Mod.logger.Log($"UnitPop after: {c.name} {unit.Energy}:{c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
+            //Mod.logger.Log($"UnitPop after: {c.name} {unit.Energy}:{c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
         }
 
         private void HandleUnitState(NetUnitState unitState)
@@ -315,6 +315,44 @@ namespace CPMod_Multiplayer
             }
 
             return room;
+        }
+
+        public void UnitSetCommand(Unit unit, string action)
+        {
+            int index;
+            try
+            {
+                index = unitMapping.Get(unit);
+            }
+            catch (KeyNotFoundException e)
+            {
+                return;
+            }
+            
+            _socket.Send(new NetUnitOrders()
+            {
+                unitId = index,
+                command = action
+            });
+        }
+
+        public void UnitMoveTo(Unit unit, Room destination)
+        {
+            int index;
+            try
+            {
+                index = unitMapping.Get(unit);
+            }
+            catch (KeyNotFoundException e)
+            {
+                return;
+            }
+            
+            _socket.Send(new NetUnitOrders()
+            {
+                unitId = index,
+                moveTo = destination.Id
+            });
         }
     }
 }

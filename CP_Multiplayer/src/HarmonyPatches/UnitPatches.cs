@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using HarmonyLib;
+﻿using HarmonyLib;
 using System.Reflection;
-using System.Reflection.Emit;
 
 // ReSharper disable UnusedType.Global
 // ReSharper disable UnusedMember.Local
@@ -33,7 +30,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
     {
         private static bool Prefix()
         {
-            return !MultiplayerManager.SuppressGameLogic;
+            return !MultiplayerManager.EveryoneIsPlayer;
         }
     }
 
@@ -94,80 +91,43 @@ namespace CPMod_Multiplayer.HarmonyPatches
         }
     }
 
-    internal class PatchTeamOneChecks
+    [HarmonyPatch(typeof(Unit), nameof(Unit.SetCommand))]
+    internal class Unit_SetCommand
     {
-        private static MethodInfo m_get_Team = AccessTools.PropertyGetter(typeof(Unit), nameof(Unit.Team));
-        private static MethodInfo m_patch = AccessTools.Method(typeof(PatchTeamOneChecks), nameof(PatchTeamValue));
-
-        internal static void PatchClass(Harmony h, Type ty)
+        private static void Prefix(Unit __instance, string Action)
         {
-            var methods = ty.GetMethods(
-                BindingFlags.Public
-                | BindingFlags.NonPublic
-                | BindingFlags.Instance
-                | BindingFlags.Static
-                | BindingFlags.DeclaredOnly
-            );
-
-            var transpiler = AccessTools.Method(typeof(PatchTeamOneChecks), nameof(Transpiler));
-
-            foreach (var method in methods)
+            if (MultiplayerManager.MultiplayerFollower)
             {
-                if (method.HasMethodBody())
-                {
-                    h.Patch(method, transpiler: new HarmonyMethod(transpiler));
-                }
+                PuppetClient.Instance.UnitSetCommand(__instance, Action);
             }
         }
-        
-        static int PatchTeamValue(int actualTeam)
+    }
+
+    [HarmonyPatch(typeof(Unit), nameof(Unit.Move))]
+    internal class Unit_Move
+    {
+        private static bool Prefix(Unit __instance, Room room)
+        {
+            if (MultiplayerManager.MultiplayerFollower)
+            {
+                PuppetClient.Instance.UnitMoveTo(__instance, room);
+                
+                return false;
+            }
+
+            return true;
+        }
+    }
+    
+    [HarmonyPatch(typeof(Unit), "Start")]
+    internal class Unit_Start
+    {
+        private static void Prefix(Unit __instance)
         {
             if (MultiplayerManager.EveryoneIsPlayer)
             {
-                return 1;
+                __instance.AutoPlay = false;
             }
-            else
-            {
-                return actualTeam;
-            }
-        }
-        
-        internal static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            var outinsns = new List<CodeInstruction>();
-
-            var branches = new HashSet<OpCode>();
-            branches.Add(OpCodes.Beq);
-            branches.Add(OpCodes.Beq_S);
-            branches.Add(OpCodes.Bne_Un);
-            branches.Add(OpCodes.Bne_Un_S);
-            branches.Add(OpCodes.Ceq);
-            
-            foreach (var instruction in instructions)
-            {
-                if (outinsns.Count < 2 || !branches.Contains(instruction.opcode))
-                {
-                    outinsns.Add(instruction);
-                    continue;
-                }
-                
-                // Look for pattern: get team, const 1, jump
-                // Inject after get team our hook
-
-                var l1 = outinsns[outinsns.Count - 2];
-                var l2 = outinsns[outinsns.Count - 1];
-                
-                if (l1.Calls(m_get_Team) && l2.LoadsConstant(1))
-                {
-                    outinsns.Insert(outinsns.Count - 1, new CodeInstruction(OpCodes.Call, m_patch));
-                } else if (l2.Calls(m_get_Team) && l1.LoadsConstant(1))
-                {
-                    outinsns.Add(new CodeInstruction(OpCodes.Call, m_patch));
-                }
-                outinsns.Add(instruction);
-            }
-
-            return outinsns;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using CPMod_Multiplayer.HarmonyPatches;
@@ -18,8 +19,11 @@ namespace CPMod_Multiplayer
 
         static internal Harmony harmony;
 
+        [SuppressMessage("ReSharper", "UnusedMember.Local")]
         static bool Load(UnityModManager.ModEntry modEntry)
         {
+            Debug.logger.logEnabled = true;
+
             Mod.modEntry = modEntry;
             Mod.logger = modEntry.Logger;
 
@@ -42,7 +46,7 @@ namespace CPMod_Multiplayer
                 Harmony.DEBUG = true;
                 harmony = new Harmony(modEntry.Info.Id);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
-                PatchTeamOneChecks.PatchClass(harmony, typeof(Unit));
+                PatchTeamOneChecks.PatchClasses(harmony);
             } catch (Exception e)
             {
                 logger.LogException("Failed to patch game code", e);

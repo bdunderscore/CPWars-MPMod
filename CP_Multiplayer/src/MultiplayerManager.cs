@@ -24,7 +24,8 @@ namespace CPMod_Multiplayer
 
         public static Boolean SuppressGameLogic => MultiplayerFollower;
         public static Boolean EveryoneIsPlayer => MultiplayerSession;
-        
+        public static int MyTeam { get; private set; } = 1;
+
         private Scene currentGameScene;
         public bool isPuppet;
 
@@ -136,9 +137,11 @@ namespace CPMod_Multiplayer
 
             if (!MultiplayerSession)
             {
+                MyTeam = 1;
                 return;
             }
             var netPuppet = new GameObject("NetworkPuppet");
+            MyTeam = lobby.Members.SelfIndex + 1;
 
             if (!MultiplayerFollower)
             {

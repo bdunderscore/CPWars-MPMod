@@ -1,4 +1,5 @@
-﻿using MessagePack;
+﻿using JetBrains.Annotations;
+using MessagePack;
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace CPMod_Multiplayer.Serialization
@@ -13,6 +14,7 @@ namespace CPMod_Multiplayer.Serialization
     [MessagePack.Union(7, typeof(NetLogCreateMessage))]
     [MessagePack.Union(8, typeof(NetLogCreateGetMessage))]
     [MessagePack.Union(9, typeof(LobbyPacket))]
+    [MessagePack.Union(10, typeof(NetUnitOrders))]
     public interface NetPacket
     {
         
@@ -240,6 +242,19 @@ namespace CPMod_Multiplayer.Serialization
         public string displayName;
         [Key(2)]
         public string text;
+    }
+
+    [MessagePackObject]
+    public class NetUnitOrders : NetPacket
+    {
+        [Key(0)] public int? moveTo;
+        [Key(1)] [CanBeNull] public string command;
+        [Key(2)] public int unitId;
+
+        public override string ToString()
+        {
+            return $"[NetUnitOrders {nameof(moveTo)}: {moveTo}, {nameof(command)}: {command}, {nameof(unitId)}: {unitId}]";
+        }
     }
     
     // TODO LogManager intercept

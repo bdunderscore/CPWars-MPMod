@@ -1,10 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using CPMod_Multiplayer.LobbyManagement;
 using HarmonyLib;
 using TMPro;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace CPMod_Multiplayer.HarmonyPatches
 {
@@ -77,6 +79,21 @@ namespace CPMod_Multiplayer.HarmonyPatches
                 Mod.logger.Log("[GameSetupFlow] Set clublist=" + selectedClubs.Join(a=>a,","));
                 GameManager.Instance.clubList = selectedClubs;
                 GameManager.Instance.teamNum = selectedClubs.Count - 1;
+                
+                // For now, forget all original characters to avoid issues
+                try
+                {
+                    var characters = CharacterData.Instance.GetCharacters();
+                    var originals = characters.Keys.Where(CharacterData.Instance.IsOriginalCharacter).ToArray();
+                    foreach (var original in originals)
+                    {
+                        characters.Remove(original);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Mod.logger.LogException("[GameSetupFlow] Failed to remove original characters", e);
+                }
             }
         }
     }
