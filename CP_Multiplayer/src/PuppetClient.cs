@@ -222,8 +222,6 @@ namespace CPMod_Multiplayer
             f_hour.SetValue(GameManager.Instance, frameStart.hour);
             f_min.SetValue(GameManager.Instance, frameStart.minute);
             
-            Mod.logger.Log($"frameStart.money = {frameStart.money.Join(a => a.ToString(), ",")}");
-            
             GameManager.Instance.Money = frameStart.money[MultiplayerManager.MyTeam];
         }
         
