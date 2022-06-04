@@ -38,7 +38,6 @@ namespace CPMod_Multiplayer.HarmonyPatches
         
         static int UI_Patch(int actualTeam)
         {
-            Mod.logger.Log($"UI_UnitPatch: actual={actualTeam} my={MultiplayerManager.MyTeam}");
             if (actualTeam == MultiplayerManager.MyTeam)
             {
                 return 1;

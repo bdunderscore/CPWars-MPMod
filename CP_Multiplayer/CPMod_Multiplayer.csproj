@@ -336,6 +336,7 @@
     <Compile Include="src\HarmonyPatches\LogManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\MainSceneManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\PatchTeamOneChecks.cs" />
+    <Compile Include="src\HarmonyPatches\ReplacementLogic.cs" />
     <Compile Include="src\HarmonyPatches\SteamManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\TutorialDataPatches.cs" />
     <Compile Include="src\HarmonyPatches\UnitManagerPatches.cs" />

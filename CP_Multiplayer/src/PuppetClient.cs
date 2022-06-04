@@ -6,6 +6,7 @@ using CPMod_Multiplayer.LobbyManagement;
 using CPMod_Multiplayer.Serialization;
 using HarmonyLib;
 using MessagePack;
+using MessagePack.Unity;
 using Steamworks;
 using UnityEngine;
 
@@ -25,6 +26,7 @@ namespace CPMod_Multiplayer
 
         private Socket _socket;
         private bool _connected;
+        private bool _inReceive;
 
         private Callback<SteamNetConnectionStatusChangedCallback_t> _connStatusChanged;
 
@@ -92,11 +94,16 @@ namespace CPMod_Multiplayer
             {
                 try
                 {
+                    _inReceive = true;
                     HandlePacket(incomingPacket);
                 }
                 catch (Exception e)
                 {
                     Mod.LogException("Failed to handle incoming packet", e);
+                }
+                finally
+                {
+                    _inReceive = false;
                 }
             }
             
@@ -266,11 +273,28 @@ namespace CPMod_Multiplayer
             unit.InRoom = unitState.inRoomId != -1 ? RoomManager.Instance.GetRoom(unitState.inRoomId) : null;
             f_lastRoom.SetValue(unit, GetRoomById(unitState.lastRoomId));
             unit.Team = unitState.owningPlayer;
+            
             unit.ActionName = unitState.actionName;
+            if (unit.ActionName != "capture" && unit.ActionName != "walk")
+            {
+                // Unit will try to reset its action in FixedUpdate if command is inconsistent
+                unit.SetCommand(unit.ActionName);
+            }
+            else
+            {
+                unit.ActionName = unitState.actionName;                
+            }
             // Setting ActionName zeroes actionProc, so set it afterward
             f_actionProc.SetValue(unit, unitState.actionProc);
             f_targetRoom.SetValue(unit,  unitState.targetRoomId != -1 ? RoomManager.Instance.GetRoom(unitState.targetRoomId) : null);
-            unit.Way = unitState.wayId != -1 ? waypointMapping[unitState.wayId] : null;
+            if (unitState.wayId == -1 || !waypointMapping.TryGetValue(unitState.wayId, out var waypoint))
+            {
+                unit.Way = null;
+            }
+            else
+            {
+                unit.Way = waypoint;
+            }
             unit.IsLeader = unitState.isLeader;
 
             MultiplayerManager.instance.StatusOverrides.Remove(unit.Name);
@@ -297,8 +321,8 @@ namespace CPMod_Multiplayer
 
                 _positionUpdateNeeded.Add(unit);
 
-                unit.transform.position =
-                    unit.InRoom != null ? unit.InRoom.transform.position : unit.Way.transform.position;
+                if (unit.InRoom != null) unit.transform.position = unit.InRoom.transform.position;
+                else if (unit.Way != null) unit.transform.position = unit.Way.transform.position;
             }
 
             m_UIUnit_Update.Invoke(unit.UIObject, Array.Empty<object>());
@@ -319,6 +343,8 @@ namespace CPMod_Multiplayer
 
         public void UnitSetCommand(Unit unit, string action)
         {
+            if (_inReceive) return;
+            
             int index;
             try
             {
@@ -338,6 +364,8 @@ namespace CPMod_Multiplayer
 
         public void UnitMoveTo(Unit unit, Room destination)
         {
+            if (_inReceive) return;
+            
             int index;
             try
             {

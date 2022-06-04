@@ -10,24 +10,7 @@ using Random = UnityEngine.Random;
 
 namespace CPMod_Multiplayer.HarmonyPatches
 {
-        
-    [HarmonyPatch(typeof(GameManager), "Start")]
-    static class GameManager_Start
-    {
-        internal static bool InStart;
-        
-        static void Prefix()
-        {
-            InStart = true;
-        }
-
-        static void Postfix()
-        {
-            InStart = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(GameManager), "Start")]
+    [HarmonyPatch(typeof(GameManager), "Awake")]
     static class GameManager_Awake
     {
         private static FieldInfo f_obj_GameMode = AccessTools.Field(typeof(GameManager), "_obj_GameMode");
@@ -46,14 +29,119 @@ namespace CPMod_Multiplayer.HarmonyPatches
             if (obj_GameMode != null) obj_GameMode.GetComponent<TextMeshProUGUI>().text = "ネット対戦";
         }
     }
-    
-        
-    [HarmonyPatch(typeof(ResultData), nameof(ResultData.Initialize))]
-    static class ResultData_Initialize
+            
+    [HarmonyPatch(typeof(GameManager), "Start")]
+    static class GameManager_Start
     {
-        public static void Prefix()
+       
+        static bool Prefix()
         {
-            // This is a convenient place to override the club list
+            if (MultiplayerManager.MultiplayerSession)
+            {
+                GameSetup.StartGame();
+                return false;
+            }
+
+            return true;
+        }
+    }
+    
+    static class GameSetup
+    {
+        private static readonly FieldInfo f_currentBGMName
+            = AccessTools.Field(typeof(GameManager), "_currentBGMName");
+        private static readonly FieldInfo f_popCharacterList
+            = AccessTools.Field(typeof(GameManager), "_popCharacterList");
+        private static readonly MethodInfo m_InitializeBase
+            = AccessTools.Method(typeof(GameManager), "InitializeBase");
+        
+        internal static void NextBGM()
+        {
+            BGMManager.Instance.PlayGameBGM();
+            TMP_Text bgmName = f_currentBGMName.GetValue(GameManager.Instance) as TMP_Text;
+            if (bgmName != null) bgmName.text = "♪ " + BGMManager.Instance.GetCurrentBGMName() + "(FOIV)";;
+        }
+
+        internal static void StartGame()
+        {
+            GameManager gameManager = GameManager.Instance;
+            NextBGM();
+            SetupClubs();
+            ForgetOriginalCharacters();
+            GameManagerInit();
+            PopInitialCharacters();
+        }
+
+        private static void GameManagerInit()
+        {
+            var popCharacterList = new Dictionary<string, bool>();
+            foreach (var key in CharacterManager.Instance.CharacterList.Keys)
+            {
+                popCharacterList.Add(key, false);
+            }
+            f_popCharacterList.SetValue(GameManager.Instance, popCharacterList);
+
+            m_InitializeBase.Invoke(GameManager.Instance, Array.Empty<object>());
+        }
+
+        private static void PopInitialCharacters()
+        {
+            if (MultiplayerManager.MultiplayerFollower) return;
+            
+            // Character ID -> players choosing that character
+            Dictionary<string, List<int>> drafts = new Dictionary<string, List<int>>();
+            int[] initialCharacterCounts = new int[GameManager.Instance.teamNum];
+
+            foreach (var member in LobbyManager.CurrentLobby.Members)
+            {
+                foreach (var character in member.MemberState.characters)
+                {
+                    Mod.logger.Log($"initial draft for {member.MemberState.displayName}: '{character}'");
+                    if (string.IsNullOrEmpty(character)) continue;
+                    
+                    initialCharacterCounts[member.MemberState.teamIndex]++;
+
+                    if (character == "__random__") continue;
+                    if (!drafts.ContainsKey(character)) drafts[character] = new List<int>();
+                    drafts[character].Add(member.MemberState.teamIndex);
+                }
+            }
+            
+            // Pop chosen characters first
+            foreach (var chara in drafts.Keys)
+            {
+                var candidates = drafts[chara];
+                var choice = candidates[Random.Range(0, candidates.Count)];
+                
+                Mod.logger.Log($"Character {chara}: Candidates {candidates.Join(a => a.ToString(), ",")} => {choice}");
+
+                GameManager.Instance.PopCharacter(chara, choice + 1, isInitialize: true);
+                initialCharacterCounts[choice]--;
+            }
+            
+            // Add random pops for any missed choices
+            List<string> characters = GameManager.Instance.GetNonPopCharacterList();
+            for (int i = 0; i < initialCharacterCounts.Length; i++)
+            {
+                Mod.logger.Log($"Additional pops for {i}: {initialCharacterCounts[i]}");
+                while (initialCharacterCounts[i] > 0)
+                {
+                    int index = Random.Range(0, characters.Count);
+                    // Swap-remove
+                    string last = characters[characters.Count - 1];
+                    string chosen = characters[index];
+                    characters[index] = last;
+                    characters.RemoveAt(characters.Count - 1);
+                    
+                    initialCharacterCounts[i]--;
+                    var unit = GameManager.Instance.PopCharacter(chosen, i + 1, isInitialize: true);
+                    Mod.logger.Log($"Pop unit: {(unit != null ? unit.name : "null")}");
+                }
+            }
+        }
+
+        private static void SetupClubs()
+        {
             if (MultiplayerManager.MultiplayerSession && !MultiplayerManager.MultiplayerFollower)
             {
                 var clubList = ConstString.ClubName.Keys.Where(k => k != "---")
@@ -79,22 +167,35 @@ namespace CPMod_Multiplayer.HarmonyPatches
                 Mod.logger.Log("[GameSetupFlow] Set clublist=" + selectedClubs.Join(a=>a,","));
                 GameManager.Instance.clubList = selectedClubs;
                 GameManager.Instance.teamNum = selectedClubs.Count - 1;
-                
-                // For now, forget all original characters to avoid issues
-                try
+            }
+        }
+
+        private static void ForgetOriginalCharacters()
+        {
+            // For now, forget all original characters to avoid issues
+            try
+            {
+                var characters = CharacterData.Instance.GetCharacters();
+                var originals = characters.Keys.Where(CharacterData.Instance.IsOriginalCharacter).ToArray();
+                foreach (var original in originals)
                 {
-                    var characters = CharacterData.Instance.GetCharacters();
-                    var originals = characters.Keys.Where(CharacterData.Instance.IsOriginalCharacter).ToArray();
-                    foreach (var original in originals)
-                    {
-                        characters.Remove(original);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Mod.logger.LogException("[GameSetupFlow] Failed to remove original characters", e);
+                    characters.Remove(original);
                 }
             }
+            catch (Exception e)
+            {
+                Mod.logger.LogException("[GameSetupFlow] Failed to remove original characters", e);
+            }
+        }
+    }
+    
+    [HarmonyPatch(typeof(ResultData), nameof(ResultData.Initialize))]
+    static class ResultData_Initialize
+    {
+        public static void Prefix()
+        {
+            // This is a convenient place to override the club list
+            
         }
     }
 
