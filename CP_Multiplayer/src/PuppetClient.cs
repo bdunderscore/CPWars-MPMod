@@ -139,6 +139,8 @@ namespace CPMod_Multiplayer
                     HandleRoomState(roomState);
                     break;
                 case NetFrameComplete _:
+                    GameManager.Instance.AddMoney = RoomManager.Instance.Rooms
+                        .Count(r => r.DominationTeam == MultiplayerManager.MyTeam) * 10;
                     break;
                 case NetLogCreateMessage logCreateMessage:
                     HandleLogCreateMessage(logCreateMessage);
@@ -256,12 +258,13 @@ namespace CPMod_Multiplayer
         {
             var c = CharacterManager.Instance.CharacterList[charaMapping.Get(unitPop.charaIndex)];
             
-            //Mod.logger.Log($"UnitPop before: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
+            Mod.logger.Log($"UnitPop: c null? {c == null}");
+            Mod.logger.Log($"UnitPop before: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
             
             var unit = GameManager.Instance.PopCharacter(c.name, unitPop.playerIndex);
             unitMapping.Set(unitPop.unitIndex, unit);
             
-            //Mod.logger.Log($"UnitPop after: {c.name} {unit.Energy}:{c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
+            Mod.logger.Log($"UnitPop after: {c.name} {unit.Energy}:{c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
         }
 
         private void HandleUnitState(NetUnitState unitState)

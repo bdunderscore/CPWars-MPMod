@@ -66,9 +66,10 @@ namespace CPMod_Multiplayer.HarmonyPatches
         {
             NextBGM();
             SetupClubs();
+            
             ForgetOriginalCharacters();
             GameManagerInit();
-            
+
             if (!MultiplayerManager.MultiplayerFollower)
             {
                 MultiplayerManager.InitMoney(gameManager.teamNum, 4000);
@@ -186,6 +187,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
                 foreach (var original in originals)
                 {
                     characters.Remove(original);
+                    CharacterManager.Instance.CharacterList.Remove(original);
                 }
             }
             catch (Exception e)

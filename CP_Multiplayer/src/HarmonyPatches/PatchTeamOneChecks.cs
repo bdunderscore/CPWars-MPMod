@@ -9,14 +9,18 @@ namespace CPMod_Multiplayer.HarmonyPatches
     internal class PatchTeamOneChecks
     {
         private static readonly MethodInfo m_get_Team = AccessTools.PropertyGetter(typeof(Unit), nameof(Unit.Team));
+        private static readonly MethodInfo t_UnitTranspiler = AccessTools.Method(typeof(PatchTeamOneChecks), nameof(UnitTranspiler));
+        private static readonly MethodInfo t_UiTranspiler = AccessTools.Method(typeof(PatchTeamOneChecks), nameof(UI_Transpiler));
 
         internal static void PatchClasses(Harmony h)
         {
-            PatchClass(h, typeof(Unit), nameof(UnitTranspiler));
-            PatchClass(h, typeof(UI_Unit), nameof(UI_Transpiler));
-            PatchClass(h, typeof(UI_Status), nameof(UI_Transpiler));
+            PatchClass(h, typeof(Unit), t_UnitTranspiler);
+            PatchClass(h, typeof(UI_Unit), t_UiTranspiler);
+            PatchClass(h, typeof(UI_Status), t_UiTranspiler);
+            h.Patch(AccessTools.Method(typeof(GameManager), nameof(GameManager.CalcAddMoney)),
+                transpiler: new HarmonyMethod(t_UiTranspiler));
         }
-        internal static void PatchClass(Harmony h, Type ty, string transpileMethod) {
+        internal static void PatchClass(Harmony h, Type ty, MethodInfo methodInfo) {
             var methods = ty.GetMethods(
                 BindingFlags.Public
                 | BindingFlags.NonPublic
@@ -25,7 +29,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
                 | BindingFlags.DeclaredOnly
             );
 
-            var transpiler = AccessTools.Method(typeof(PatchTeamOneChecks), transpileMethod);
+            var transpiler = methodInfo;
 
             foreach (var method in methods)
             {

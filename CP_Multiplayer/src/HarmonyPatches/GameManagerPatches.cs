@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System.Reflection;
+using HarmonyLib;
 
 // ReSharper disable UnusedType.Global
 // ReSharper disable UnusedMember.Local
@@ -9,9 +10,50 @@ namespace CPMod_Multiplayer.HarmonyPatches
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.UpdateTimer))]
     internal class GameManager_UpdateTimer
     {
-        private static bool Prefix()
+        private static FieldInfo f_hour = AccessTools.Field(typeof(GameManager), "_hour");
+        private static FieldInfo f_min = AccessTools.Field(typeof(GameManager), "_min");
+        private static float lastHour = 0;
+        private static float lastMin = 0;
+        private static bool Prefix(GameManager __instance)
         {
-            return !(MultiplayerManager.SuppressGameLogic);
+            if (MultiplayerManager.SuppressGameLogic)
+            {
+                var hour = (float)f_hour.GetValue(__instance);
+                if (hour < lastHour)
+                {
+                    GameSetup.NextBGM();
+                }
+
+                lastHour = hour;
+                return false;
+            }
+            else
+            {
+                lastMin = (float) f_min.GetValue(__instance);
+                return true;
+            }
+        }
+
+        private static void Postfix()
+        {
+            if (MultiplayerManager.MultiplayerFollower) return;
+            
+            var min = (float) f_min.GetValue(GameManager.Instance);
+            if (min >= lastMin)
+            {
+                return; // No hour rollover - no money increase
+            }
+            
+            // Apply money updates. Note that the original logic in UpdateTimer has no effect, because
+            // money tracking is mastered in the MultiplayerManager (so we'll overwrite/ignore the GameManager.Money
+            // value later)
+            foreach (Room room in RoomManager.Instance.Rooms)
+            {
+                if (room.DominationTeam > 0)
+                {
+                    MultiplayerManager.SetMoney(room.DominationTeam, MultiplayerManager.GetMoney(room.DominationTeam) + 10);
+                }
+            }
         }
     }
 
