@@ -34,6 +34,21 @@ namespace CPMod_Multiplayer.LobbyManagement
             );
             Members.SelfIndex = 0;
             Members.Self.OnChange += OnMemberChange;
+            Members.OnRenumber += OnRenumber;
+        }
+
+        void OnRenumber(int from, int to)
+        {
+            var msg = new LobbyRenumber()
+            {
+                from = from,
+                to = to
+            }.ToNetPacket();
+            
+            foreach (var member in Members)
+            {
+                member.Socket?.Send(msg);
+            }
         }
         
         void OnConnect(Socket s, SteamNetworkingIdentity remoteIdentity)
@@ -289,6 +304,8 @@ namespace CPMod_Multiplayer.LobbyManagement
         public override void StartGame()
         {
             if (GameActive) return;
+            
+            Members.Defragment();
             
             var pkt = MessagePackSerializer.Serialize<NetPacket>(new LobbyStartGame().ToNetPacket());
             foreach (var member in Members)

@@ -11,9 +11,13 @@ namespace CPMod_Multiplayer.LobbyManagement
         
         public delegate void DelOnJoin(LobbyMember member);
         public delegate void DelOnPart(LobbyMember member);
+
+        public delegate void DelRenumber(int from, int to);
         
         public event DelOnJoin OnJoin;
         public event DelOnPart OnPart;
+        public event DelRenumber OnRenumber;
+        
         public LobbyMember Self => SelfIndex < 0 ? null : _members[SelfIndex];
         
         private readonly LobbyMember[] _members = new LobbyMember[MAX_PLAYERS];
@@ -21,7 +25,7 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         internal bool TryJoin(Socket socket, out LobbyMember member)
         {
-            for (int i = 0; i < _members.Length; i++)
+            for (int i = _members.Length - 1; i >= 0; i--)
             {
                 if (_members[i] == null)
                 {
@@ -36,6 +40,40 @@ namespace CPMod_Multiplayer.LobbyManagement
             return false;
         }
 
+        internal void Defragment()
+        {
+            int firstEmpty = 1;
+            for (int i = 1; i < _members.Length; i++)
+            {
+                if (_members[i] != null)
+                {
+                    if (firstEmpty != i)
+                    {
+                        _members[firstEmpty] = _members[i];
+                        _members[i] = null;
+                        OnRenumber?.Invoke(firstEmpty, i);
+                    }
+                    firstEmpty++;
+                }
+            }
+        }
+
+        internal void Renumber(int from, int to)
+        {
+            if (from < _members.Length && to < _members.Length && _members[to] == null)
+            {
+                _members[to] = _members[from];
+                _members[from] = null;
+
+                if (from == SelfIndex) SelfIndex = to;
+                
+                if (_members[to] != null)
+                {
+                    OnRenumber?.Invoke(from, to);
+                }
+            }
+        }
+        
         internal void SetMemberState(int index, LobbyMemberState state)
         {
             if (_members[index] == null)

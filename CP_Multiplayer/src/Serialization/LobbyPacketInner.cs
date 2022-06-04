@@ -20,6 +20,7 @@ namespace CPMod_Multiplayer.Serialization
     [MessagePack.Union(3, typeof(LobbyMemberSync))]
     [MessagePack.Union(4, typeof(LobbyMemberDrop))]
     [MessagePack.Union(5, typeof(LobbyHello))]
+    [MessagePack.Union(6, typeof(LobbyRenumber))]
     public interface LobbyPacketInner
     {
     }
@@ -121,5 +122,18 @@ namespace CPMod_Multiplayer.Serialization
         {
             return $"[LobbyAckStartGame]";
         }
+    }
+
+    /**
+     * Sent from host to clients to indicate that a lobby member has been assigned a new team index.
+     * This generally is done to avoid gaps in the team assignments at game start.
+     */
+    [MessagePackObject]
+    public class LobbyRenumber : LobbyPacketInner
+    {
+        [Key(0)]
+        public int from;
+        [Key(1)]
+        public int to;
     }
 }

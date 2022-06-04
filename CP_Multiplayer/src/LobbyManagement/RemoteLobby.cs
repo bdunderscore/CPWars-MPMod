@@ -104,6 +104,9 @@ namespace CPMod_Multiplayer.LobbyManagement
                                 _internalState = RemoteLobbyState.IN_GAME;
                                 MainSceneManager.Instance.StartGame();
                                 break;
+                            case LobbyRenumber renumber:
+                                Members.Renumber(renumber.from, renumber.to);
+                                break;
                             default:
                                 Mod.logger.Warning($"Unexpected message: {msg}");
                                 break;
