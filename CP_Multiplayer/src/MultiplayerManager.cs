@@ -31,6 +31,38 @@ namespace CPMod_Multiplayer
 
         public Dictionary<string, StatusOverride> StatusOverrides = new Dictionary<string, StatusOverride>();
 
+        private static int[] _money = new int[7];
+
+        public static void InitMoney(int nTeams, int initialMoney)
+        {
+            _money = new int[nTeams + 1];
+            for (int i = 0; i <= nTeams; i++) _money[i] = initialMoney;
+        }
+
+        public static int GetMoney(int team)
+        {
+            if (team > _money.Length) return 0;
+            
+            return _money[team];
+        }
+
+        public static int[] GetMoney()
+        {
+            return _money;
+        }
+
+        public static void SetMoney(int team, int money)
+        {
+            if (team > _money.Length) return;
+            
+            _money[team] = money;
+
+            if (team == MyTeam)
+            {
+                GameManager.Instance.Money = money;
+            }
+        }
+        
         public void Awake()
         {
             instance = this;

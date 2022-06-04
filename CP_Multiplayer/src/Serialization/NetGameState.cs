@@ -184,7 +184,7 @@ namespace CPMod_Multiplayer.Serialization
         [Key(3)]
         public float minute;
         [Key(4)]
-        public long[] money;
+        public int[] money;
 
         public override string ToString()
         {

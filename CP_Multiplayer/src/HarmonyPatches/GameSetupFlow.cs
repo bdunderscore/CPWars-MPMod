@@ -67,6 +67,9 @@ namespace CPMod_Multiplayer.HarmonyPatches
             GameManager gameManager = GameManager.Instance;
             NextBGM();
             SetupClubs();
+            MultiplayerManager.InitMoney(GameManager.Instance.teamNum, 4000);
+            // Refresh display as well
+            GameManager.Instance.Money = MultiplayerManager.GetMoney(1);
             ForgetOriginalCharacters();
             GameManagerInit();
             PopInitialCharacters();

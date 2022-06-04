@@ -403,7 +403,7 @@ namespace CPMod_Multiplayer
         {
             send(new NetFrameStart()
             {
-                money = new long[] { GameManager.Instance.Money,GameManager.Instance.Money, GameManager.Instance.Money },
+                money = MultiplayerManager.GetMoney(),
                 day = (int)f_day.GetValue(GameManager.Instance),
                 hour = (int)f_hour.GetValue(GameManager.Instance),
                 minute = (float)f_min.GetValue(GameManager.Instance),

@@ -47,6 +47,7 @@ namespace CPMod_Multiplayer
                 harmony = new Harmony(modEntry.Info.Id);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
                 PatchTeamOneChecks.PatchClasses(harmony);
+                Unit_Money_Access.PatchClass(harmony);
             } catch (Exception e)
             {
                 logger.LogException("Failed to patch game code", e);

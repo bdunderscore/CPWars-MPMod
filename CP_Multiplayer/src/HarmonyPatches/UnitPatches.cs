@@ -1,5 +1,8 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using HarmonyLib;
 using System.Reflection;
+using System.Reflection.Emit;
+using CPMod_Multiplayer.LobbyManagement;
 
 // ReSharper disable UnusedType.Global
 // ReSharper disable UnusedMember.Local
@@ -128,6 +131,87 @@ namespace CPMod_Multiplayer.HarmonyPatches
             {
                 __instance.AutoPlay = false;
             }
+        }
+    }
+
+    internal class Unit_Money_Access
+    {
+        static MethodInfo m_Money_Get 
+            = AccessTools.PropertyGetter(typeof(GameManager), nameof(GameManager.Money));
+        static MethodInfo m_Money_Set
+            = AccessTools.PropertySetter(typeof(GameManager), nameof(GameManager.Money));
+
+        private static MethodInfo patch_GetMoney = AccessTools.Method(typeof(Unit_Money_Access), nameof(GetMoney));
+        private static MethodInfo patch_SetMoney = AccessTools.Method(typeof(Unit_Money_Access), nameof(SetMoney));
+        
+        static int GetMoney(GameManager instance, Unit caller)
+        {
+            if (!MultiplayerManager.MultiplayerSession)
+            {
+                return instance.Money;
+            }
+            else
+            {
+                return MultiplayerManager.GetMoney(caller.Team);
+            }
+        }
+
+        static void SetMoney(GameManager instance, int value, Unit caller)
+        {
+            if (!MultiplayerManager.MultiplayerSession)
+            {
+                instance.Money = value;
+            }
+            else
+            {
+                MultiplayerManager.SetMoney(caller.Team, value);
+            }
+        }
+
+        public static void PatchClass(Harmony h) {
+            var methods = typeof(Unit).GetMethods(
+                BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.Instance
+                | BindingFlags.Static
+                | BindingFlags.DeclaredOnly
+            );
+
+            var transpiler = AccessTools.Method(typeof(Unit_Money_Access), nameof(Transpiler));
+
+            foreach (var method in methods)
+            {
+                if (method.HasMethodBody())
+                {
+                    h.Patch(method, transpiler: new HarmonyMethod(transpiler));
+                }
+            }
+        }
+        
+        internal static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insns)
+        {
+            var output = new List<CodeInstruction>();
+
+            foreach (var insn in insns)
+            {
+                if (insn.Calls(m_Money_Get))
+                {
+                    // push(gameManager) call -> push(gameManager) push(this) call
+                    output.Add(new CodeInstruction(OpCodes.Ldarg_0));
+                    output.Add(new CodeInstruction(OpCodes.Call, patch_GetMoney));
+                } else if (insn.Calls(m_Money_Set))
+                {
+                    // push(gameManager) push(value) call -> push(gameManager) push(value) push(this) call
+                    output.Add(new CodeInstruction(OpCodes.Ldarg_0));
+                    output.Add(new CodeInstruction(OpCodes.Call, patch_SetMoney));
+                }
+                else
+                {
+                    output.Add(insn);
+                }
+            }
+
+            return output;
         }
     }
 }
