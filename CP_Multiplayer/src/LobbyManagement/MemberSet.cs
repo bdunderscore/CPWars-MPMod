@@ -49,9 +49,7 @@ namespace CPMod_Multiplayer.LobbyManagement
                 {
                     if (firstEmpty != i)
                     {
-                        _members[firstEmpty] = _members[i];
-                        _members[i] = null;
-                        OnRenumber?.Invoke(firstEmpty, i);
+                        Renumber(i, firstEmpty);
                     }
                     firstEmpty++;
                 }
@@ -66,10 +64,12 @@ namespace CPMod_Multiplayer.LobbyManagement
                 _members[from] = null;
 
                 if (from == SelfIndex) SelfIndex = to;
-                
+
                 if (_members[to] != null)
                 {
+                    _members[to].MemberState.teamIndex = to;
                     OnRenumber?.Invoke(from, to);
+                    _members[to].RaiseOnChange();
                 }
             }
         }

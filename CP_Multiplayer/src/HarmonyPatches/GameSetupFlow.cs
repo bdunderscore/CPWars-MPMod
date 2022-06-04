@@ -54,6 +54,9 @@ namespace CPMod_Multiplayer.HarmonyPatches
             = AccessTools.Field(typeof(GameManager), "_popCharacterList");
         private static readonly MethodInfo m_InitializeBase
             = AccessTools.Method(typeof(GameManager), "InitializeBase");
+
+        private static readonly FieldInfo f_MasterData
+            = AccessTools.Field(typeof(CharacterData), "MasterData");
         
         internal static void NextBGM()
         {
@@ -64,18 +67,25 @@ namespace CPMod_Multiplayer.HarmonyPatches
 
         internal static void StartGame(GameManager gameManager)
         {
-            NextBGM();
-            SetupClubs();
-            
-            ForgetOriginalCharacters();
-            GameManagerInit();
-
-            if (!MultiplayerManager.MultiplayerFollower)
+            try
             {
-                MultiplayerManager.InitMoney(gameManager.teamNum, 4000);
-                // Refresh display as well
-                gameManager.Money = MultiplayerManager.GetMoney(1);
-                PopInitialCharacters();
+                NextBGM();
+                SetupClubs();
+
+                ForgetOriginalCharacters();
+                GameManagerInit();
+
+                if (!MultiplayerManager.MultiplayerFollower)
+                {
+                    MultiplayerManager.InitMoney(gameManager.teamNum, 4000);
+                    // Refresh display as well
+                    gameManager.Money = MultiplayerManager.GetMoney(1);
+                    PopInitialCharacters();
+                }
+            }
+            catch (Exception e)
+            {
+                Mod.logger.LogException("[GameSetupFlow] StartGame", e);
             }
         }
 
@@ -101,6 +111,8 @@ namespace CPMod_Multiplayer.HarmonyPatches
 
             foreach (var member in LobbyManager.CurrentLobby.Members)
             {
+                Mod.logger.Log($"Member {member.DisplayName} initial roster: {member.MemberState.characters.Join(delimiter: ",")}");
+                
                 foreach (var character in member.MemberState.characters)
                 {
                     Mod.logger.Log($"initial draft for {member.MemberState.displayName}: '{character}'");
@@ -183,7 +195,12 @@ namespace CPMod_Multiplayer.HarmonyPatches
             try
             {
                 var characters = CharacterData.Instance.GetCharacters();
-                var originals = characters.Keys.Where(CharacterData.Instance.IsOriginalCharacter).ToArray();
+                var masterData =
+                    (Dictionary<String, CharacterData.CharacterMasterData>)
+                    f_MasterData.GetValue(CharacterData.Instance);
+                var originals = characters.Keys.Where(
+                    c => !masterData.ContainsKey(c) || CharacterData.Instance.IsOriginalCharacter(c)
+                ).ToArray();
                 foreach (var original in originals)
                 {
                     characters.Remove(original);
