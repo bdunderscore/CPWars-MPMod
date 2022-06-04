@@ -34,11 +34,11 @@ namespace CPMod_Multiplayer.HarmonyPatches
     static class GameManager_Start
     {
        
-        static bool Prefix()
+        static bool Prefix(GameManager __instance)
         {
             if (MultiplayerManager.MultiplayerSession)
             {
-                GameSetup.StartGame();
+                GameSetup.StartGame(__instance);
                 return false;
             }
 
@@ -62,17 +62,20 @@ namespace CPMod_Multiplayer.HarmonyPatches
             if (bgmName != null) bgmName.text = "♪ " + BGMManager.Instance.GetCurrentBGMName() + "(FOIV)";;
         }
 
-        internal static void StartGame()
+        internal static void StartGame(GameManager gameManager)
         {
-            GameManager gameManager = GameManager.Instance;
             NextBGM();
             SetupClubs();
-            MultiplayerManager.InitMoney(GameManager.Instance.teamNum, 4000);
-            // Refresh display as well
-            GameManager.Instance.Money = MultiplayerManager.GetMoney(1);
             ForgetOriginalCharacters();
             GameManagerInit();
-            PopInitialCharacters();
+            
+            if (!MultiplayerManager.MultiplayerFollower)
+            {
+                MultiplayerManager.InitMoney(gameManager.teamNum, 4000);
+                // Refresh display as well
+                gameManager.Money = MultiplayerManager.GetMoney(1);
+                PopInitialCharacters();
+            }
         }
 
         private static void GameManagerInit()
