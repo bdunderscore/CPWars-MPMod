@@ -10,7 +10,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
     {
         static bool Prefix(ref bool __result)
         {
-            if (MultiplayerManager.SuppressGameLogic)
+            if (MultiplayerManager.MultiplayerSession)
             {
                 __result = false;
                 return false;
@@ -25,7 +25,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
     {
         static bool Prefix(ref bool __result)
         {
-            if (MultiplayerManager.SuppressGameLogic)
+            if (MultiplayerManager.MultiplayerSession)
             {
                 __result = false;
                 return false;

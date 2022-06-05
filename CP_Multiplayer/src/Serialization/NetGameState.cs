@@ -15,6 +15,7 @@ namespace CPMod_Multiplayer.Serialization
     [MessagePack.Union(8, typeof(NetLogCreateGetMessage))]
     [MessagePack.Union(9, typeof(LobbyPacket))]
     [MessagePack.Union(10, typeof(NetUnitOrders))]
+    [MessagePack.Union(11, typeof(NetGameResult))]
     public interface NetPacket
     {
         
@@ -255,6 +256,12 @@ namespace CPMod_Multiplayer.Serialization
         {
             return $"[NetUnitOrders {nameof(moveTo)}: {moveTo}, {nameof(command)}: {command}, {nameof(unitId)}: {unitId}]";
         }
+    }
+
+    [MessagePackObject]
+    public class NetGameResult : NetPacket
+    {
+        [Key(0)] public int winner;
     }
     
     // TODO LogManager intercept

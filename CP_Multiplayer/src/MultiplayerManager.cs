@@ -19,8 +19,20 @@ namespace CPMod_Multiplayer
         public static MultiplayerManager instance;
         public static bool SteamNetworkAvailable = false;
 
-        public static bool MultiplayerSession => LobbyManager.CurrentLobby != null;
-        public static bool MultiplayerFollower => MultiplayerSession && !LobbyManager.CurrentLobby.IsHost;
+        // We lock these in to ensure they don't revert if we're disconnected later
+        private static bool _mpSession, _mpFollower;
+
+        public static bool MultiplayerSession
+        {
+            get => _mpSession || LobbyManager.CurrentLobby != null;
+            private set => _mpSession = value;
+        }
+
+        public static bool MultiplayerFollower
+        {
+            get => _mpFollower || (LobbyManager.CurrentLobby != null && !LobbyManager.CurrentLobby.IsHost);
+            private set => _mpFollower = value;
+        }
 
         public static Boolean SuppressGameLogic => MultiplayerFollower;
         public static Boolean EveryoneIsPlayer => MultiplayerSession;
@@ -167,6 +179,10 @@ namespace CPMod_Multiplayer
             
             Mod.logger.Log($"[OnEnterGameScene] lobbypresent={lobby != null} isHost={lobby?.IsHost}");
 
+            // Lock values
+            MultiplayerSession = MultiplayerSession;
+            MultiplayerFollower = MultiplayerFollower;
+                
             if (!MultiplayerSession)
             {
                 MyTeam = 1;

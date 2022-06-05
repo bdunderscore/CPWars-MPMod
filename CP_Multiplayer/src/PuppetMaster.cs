@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using CPMod_Multiplayer.HarmonyPatches;
 using CPMod_Multiplayer.LobbyManagement;
 using CPMod_Multiplayer.Serialization;
@@ -151,6 +152,8 @@ namespace CPMod_Multiplayer
 
         private bool _initial = true;
         private bool _requestIncrementalSync = false;
+        private bool _connected = true;
+        private bool _gameOver = false;
         
         private Dictionary<HSteamNetConnection, LobbyMember> _connections = new Dictionary<HSteamNetConnection, LobbyMember>();
 
@@ -185,6 +188,8 @@ namespace CPMod_Multiplayer
 
         private void LateUpdate()
         {
+            if (!_connected) return;
+            
             if (_initial)
             {
                 InitialSync();
@@ -199,10 +204,75 @@ namespace CPMod_Multiplayer
                 _requestIncrementalSync = false;
             }
 
+            CheckGameEnd();
+
             foreach (var member in _connections.Values)
             {
                 member.Socket.Flush();
                 PollMessages(member);
+
+                if (member.Socket?.ErrorState == true)
+                {
+                    try
+                    {
+                        _connected = false;
+                        var errorWindow = ErrorWindow.Show($"{member.DisplayName}が切だんされました");
+                        LobbyManager.CurrentLobby = null; // TODO - send game-over message?
+                        errorWindow.OnClose = () => { MainSceneManager.Instance.StartTitle(); };
+                    }
+                    catch (Exception e)
+                    {
+                        Mod.LogException("[PuppetMaster] Disconnect handling", e);
+                    }
+                }
+            }
+        }
+
+        private void CheckGameEnd()
+        {
+            if (_gameOver) return;
+            
+            bool[] live = new bool[GameManager.Instance.teamNum + 1];
+            int liveTeams = 0;
+            int sampleLiveTeam = -1;
+
+            foreach (var unit in UnitManager.Instance.Units.Values)
+            {
+                if (!live[unit.Team])
+                {
+                    live[unit.Team] = true;
+                    liveTeams++;
+                    sampleLiveTeam = unit.Team;
+                }
+            }
+
+            NetPacket packet = null;
+            if (liveTeams == 0)
+            {
+                // Everyone died?
+                packet = new NetGameResult()
+                {
+                    winner = -1
+                };
+                GameSetup.DeclareWinner(-1);
+            }
+            else if (liveTeams == 1)
+            {
+                packet = new NetGameResult()
+                {
+                    winner = sampleLiveTeam
+                };
+                GameSetup.DeclareWinner(sampleLiveTeam);
+            }
+
+            if (packet != null)
+            {
+                _gameOver = true;
+                
+                foreach (var member in _connections.Values)
+                {
+                    member.Socket?.Send(packet);
+                }
             }
         }
 

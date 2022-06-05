@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using CPMod_Multiplayer.HarmonyPatches;
 using CPMod_Multiplayer.LobbyManagement;
 using CPMod_Multiplayer.Serialization;
 using HarmonyLib;
@@ -83,9 +84,16 @@ namespace CPMod_Multiplayer
                     return;
                 }
             }
+
+            if (_socket.ErrorState)
+            {
+                _connected = false;
+                ErrorWindow.Show("切だんされました。").OnClose = MainSceneManager.Instance.StartTitle;
+                LobbyManager.CurrentLobby = null;
+            }
             
             // Only start processing if we have a full packet
-            if (IncomingPackets.All(p => !(p is NetFrameComplete)))
+            if (IncomingPackets.All(p => !(p is NetFrameComplete || p is NetGameResult)))
             {
                 return;
             }
@@ -147,6 +155,11 @@ namespace CPMod_Multiplayer
                     break;
                 case NetLogCreateGetMessage logCreateGetMessage:
                     HandleLogCreateGetMessage(logCreateGetMessage);
+                    break;
+                case NetGameResult result:
+                    Mod.logger.Log($"[GameResult] winner={result.winner}");
+                    Time.timeScale = 0;
+                    GameSetup.DeclareWinner(result.winner);
                     break;
                 default:
                     Mod.logger.Log($"Unhandled packet: {packet}");

@@ -43,6 +43,12 @@ namespace CPMod_Multiplayer.LobbyManagement
 
             _socket?.Flush();
 
+            if (_socket != null && _socket.ErrorState)
+            {
+                RaiseError("切断されました。");
+                return;
+            }
+
             if (_socket != null && _socket.TryReceive(out var pkt) == true)
             {
                 NetPacket netMsg;

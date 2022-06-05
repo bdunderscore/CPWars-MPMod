@@ -54,9 +54,12 @@ namespace CPMod_Multiplayer.HarmonyPatches
             = AccessTools.Field(typeof(GameManager), "_popCharacterList");
         private static readonly MethodInfo m_InitializeBase
             = AccessTools.Method(typeof(GameManager), "InitializeBase");
-
         private static readonly FieldInfo f_MasterData
             = AccessTools.Field(typeof(CharacterData), "MasterData");
+        private static readonly FieldInfo f_obj_GameClear
+            = AccessTools.Field(typeof(GameManager), "_obj_GameClear");
+        private static readonly FieldInfo f_obj_GameOver
+            = AccessTools.Field(typeof(GameManager), "_obj_GameOver");
         
         internal static void NextBGM()
         {
@@ -208,6 +211,22 @@ namespace CPMod_Multiplayer.HarmonyPatches
             catch (Exception e)
             {
                 Mod.logger.LogException("[GameSetupFlow] Failed to remove original characters", e);
+            }
+        }
+
+        public static void DeclareWinner(int winner)
+        {
+            Time.timeScale = 0;
+
+            var won = winner == MultiplayerManager.MyTeam;
+            var objField = won ? f_obj_GameClear : f_obj_GameOver;
+            var objectList = (List<GameObject>) objField.GetValue(GameManager.Instance);
+            
+            SoundEffectManager.Instance.PlayOneShot(won ? "clear" : "game_over");
+            
+            foreach (var obj in objectList)
+            {
+                obj.SetActive(true);
             }
         }
     }

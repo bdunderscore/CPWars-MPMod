@@ -16,7 +16,7 @@ namespace CPMod_Multiplayer
         private bool _disposed;
         private Queue<byte[]> _sendQueue = new Queue<byte[]>();
 
-        public bool ErrorState => _fault;
+        public bool ErrorState => _fault || _disposed;
         public HSteamNetConnection Handle => _connection;
 
         public Socket(HSteamNetConnection connection)
