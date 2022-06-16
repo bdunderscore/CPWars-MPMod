@@ -182,7 +182,7 @@ namespace CPMod_Multiplayer
             // Lock values
             MultiplayerSession = MultiplayerSession;
             MultiplayerFollower = MultiplayerFollower;
-                
+
             if (!MultiplayerSession)
             {
                 MyTeam = 1;
@@ -205,6 +205,13 @@ namespace CPMod_Multiplayer
 
         void OnEnterTitleScene()
         {
+            if (MultiplayerSession)
+            {
+                // Reload character data
+                SaveFileManager.Instance.LoadSavedatas();
+                _mpFollower = _mpSession = false;
+            }
+            
             float margin = 50;
             
             var hajimeru = GameObject.Find("Button_Start");
