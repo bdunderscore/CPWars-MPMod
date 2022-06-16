@@ -22,7 +22,7 @@ namespace CPMod_Multiplayer
         [SuppressMessage("ReSharper", "UnusedMember.Local")]
         static bool Load(UnityModManager.ModEntry modEntry)
         {
-            Debug.logger.logEnabled = true;
+            Debug.unityLogger.logEnabled = true;
 
             Mod.modEntry = modEntry;
             Mod.logger = modEntry.Logger;
@@ -50,7 +50,7 @@ namespace CPMod_Multiplayer
                 Unit_Money_Access.PatchClass(harmony);
             } catch (Exception e)
             {
-                logger.LogException("Failed to patch game code", e);
+                LogException("Failed to patch game code", e);
                 return false;
             }
 

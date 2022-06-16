@@ -16,6 +16,8 @@ namespace CPMod_Multiplayer.Serialization
     [MessagePack.Union(9, typeof(LobbyPacket))]
     [MessagePack.Union(10, typeof(NetUnitOrders))]
     [MessagePack.Union(11, typeof(NetGameResult))]
+    [MessagePack.Union(12, typeof(NetUnitDeath))]
+    [MessagePack.Union(13, typeof(NetCharaChara))]    
     public interface NetPacket
     {
         
@@ -69,6 +71,25 @@ namespace CPMod_Multiplayer.Serialization
         }
     }
 
+    /**
+     * Serializes CharacterData.Character
+     */
+    [MessagePackObject]
+    public class NetCharaChara : NetPacket
+    {
+        [Key(0)]
+        public string name;
+        [Key(1)]
+        public int effort;
+        [Key(2)]
+        public string[] itemNames;
+        [Key(3)]
+        public bool isOwn; // true if character is unlocked
+    }
+
+    /*
+     * Serializes Character (_not_ CharacterData.Character)
+     */
     [MessagePackObject]
     public class NetCharaState : NetPacket
     {

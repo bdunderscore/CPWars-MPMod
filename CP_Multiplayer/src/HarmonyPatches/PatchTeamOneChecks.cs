@@ -79,12 +79,19 @@ namespace CPMod_Multiplayer.HarmonyPatches
             var outinsns = new List<CodeInstruction>();
 
             var branches = new HashSet<OpCode>();
-            branches.Add(OpCodes.Beq);
-            branches.Add(OpCodes.Beq_S);
-            branches.Add(OpCodes.Bne_Un);
-            branches.Add(OpCodes.Bne_Un_S);
-            branches.Add(OpCodes.Ceq);
             
+            foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (field.Name.Length >= 3 && (field.Name.StartsWith("B") || field.Name.StartsWith("C")))
+                {
+                    var cmp = field.Name.Substring(1, 2);
+                    if (cmp == "eq" || cmp == "ne" || cmp == "gt" || cmp == "lt" || cmp == "le" || cmp == "ge")
+                    {
+                        branches.Add((OpCode) field.GetValue(null));
+                    }
+                }
+            }
+
             foreach (var instruction in instructions)
             {
                 if (outinsns.Count < 2 || !branches.Contains(instruction.opcode))

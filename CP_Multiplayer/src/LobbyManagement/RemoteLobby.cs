@@ -195,7 +195,7 @@ namespace CPMod_Multiplayer.LobbyManagement
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
                 {
                     _socket.Dispose();
-                    RaiseError("Connection error: " + cb.m_info.m_szEndDebug);
+                    if (_internalState != RemoteLobbyState.IN_GAME) RaiseError("Connection error: " + cb.m_info.m_szEndDebug);
                     break;
                 }
             }

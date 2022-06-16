@@ -131,6 +131,9 @@ namespace CPMod_Multiplayer
                 case NetGameInit gameInit:
                     HandleGameInit(gameInit);
                     break;
+                case NetCharaChara charaChara:
+                    HandleCharaChara(charaChara);
+                    break;
                 case NetFrameStart frameStart:
                     HandleFrameStart(frameStart);
                     break;
@@ -142,6 +145,9 @@ namespace CPMod_Multiplayer
                     break;
                 case NetUnitState unitState:
                     HandleUnitState(unitState);
+                    break;
+                case NetUnitDeath unitDeath:
+                    HandleUnitDeath(unitDeath);
                     break;
                 case NetRoomState roomState:
                     HandleRoomState(roomState);
@@ -164,6 +170,18 @@ namespace CPMod_Multiplayer
                 default:
                     Mod.logger.Log($"Unhandled packet: {packet}");
                     break;
+            }
+        }
+
+        private void HandleUnitDeath(NetUnitDeath unitDeath)
+        {
+            if (unitMapping.TryGet(unitDeath.unitIndex, out var unit))
+            {
+                GameManager.Instance.DeleteCharacter(unit.Name);
+                if (unit.InRoom != null) unit.InRoom.Units.ForEach(u => _positionUpdateNeeded.Add(u));
+                unit.InRoom = null;
+                Destroy(unit.UIObject.gameObject);
+                Destroy(unit.gameObject);
             }
         }
 
@@ -222,11 +240,25 @@ namespace CPMod_Multiplayer
             Mod.logger.Log("Clearing character list");
             CharacterManager.Instance.CharacterList.Clear();
             CharacterManager.Instance.NameList.Clear();
+            CharacterData.Instance.GetCharacters().Clear();
 
             // Set club list
             GameManager.Instance.clubList = new List<string>(gameInit.clublist);
             
             // TODO - do something with playernames/index
+        }
+
+        private void HandleCharaChara(NetCharaChara charaChara)
+        {
+            var chara = CharacterData.Instance.GetCharacter(charaChara.name);
+            chara.effort = charaChara.effort;
+            chara.isOwn = charaChara.isOwn;
+            if (charaChara.itemNames.Length == 3)
+            {
+                chara.itemName1 = charaChara.itemNames[0];
+                chara.itemName2 = charaChara.itemNames[1];
+                chara.itemName3 = charaChara.itemNames[2];
+            }
         }
         
         private void HandleFrameStart(NetFrameStart frameStart)
@@ -269,13 +301,8 @@ namespace CPMod_Multiplayer
         {
             var c = CharacterManager.Instance.CharacterList[charaMapping.Get(unitPop.charaIndex)];
             
-            Mod.logger.Log($"UnitPop: c null? {c == null}");
-            Mod.logger.Log($"UnitPop before: {c.name} {c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
-            
             var unit = GameManager.Instance.PopCharacter(c.name, unitPop.playerIndex);
             unitMapping.Set(unitPop.unitIndex, unit);
-            
-            Mod.logger.Log($"UnitPop after: {c.name} {unit.Energy}:{c.energy}/{c.energy_max} pwr/spd/int {c.power}/{c.speed}/{c.intelligence}");
         }
 
         private void HandleUnitState(NetUnitState unitState)

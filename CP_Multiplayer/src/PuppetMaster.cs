@@ -12,6 +12,21 @@ using UnityEngine;
 
 namespace CPMod_Multiplayer
 {
+    class UnitDeathMonitor : MonoBehaviour
+    {
+        public int UnitId;
+
+        internal delegate void DlgOnDeath(int unitId);
+
+        internal event DlgOnDeath OnDeath;
+
+        void OnDestroy()
+        {
+            Mod.logger.Log($"UnitDeathMonitor: Death detected");
+            OnDeath?.Invoke(UnitId);
+        }
+    }
+    
     public class ObjectMapping<T>
     {
         private List<T> idToUnit = new List<T>();
@@ -363,12 +378,14 @@ namespace CPMod_Multiplayer
                     SendUnitState(packets.Add, unit);
                 }
 
-                foreach (var adhocPacket in adhocPackets)
+                Mod.logger.Log($"Adhoc packet queue length: {adhocPackets.Count}");
+                while (adhocPackets.Count > 0)
                 {
+                    var adhocPacket = adhocPackets.Dequeue();
+                    Mod.logger.Log($"" +
+                                   $"PuppetMaster: sending adhoc packet {adhocPacket}");
                     packets.Add(adhocPacket);
                 }
-
-                adhocPackets.Clear();
 
                 SendFrameComplete(packets.Add);
 
@@ -378,6 +395,11 @@ namespace CPMod_Multiplayer
                     foreach (var pkt in packets)
                     {
                         var serialized = MessagePackSerializer.Serialize(pkt);
+                        if (serialized == null)
+                        {
+                            Mod.logger.Log($"PuppetMaster: failed to serialize packet {pkt}");
+                            continue;
+                        }
                         //Mod.logger.Log($"Send packet for incremental sync: {pkt}");
                         member.Socket.Send(serialized);
                         byteCount += serialized.Length;
@@ -437,6 +459,7 @@ namespace CPMod_Multiplayer
         private void FullSync(OnMessageTransmitDelegate send)
         {
             SendGameInit(send);
+            SendCharaTemplates(send);
             SendFrameStart(send);
             
             foreach (var room in RoomManager.Instance.Rooms)
@@ -469,6 +492,25 @@ namespace CPMod_Multiplayer
             });
         }
 
+        void SendCharaTemplates(OnMessageTransmitDelegate send)
+        {
+            foreach (var cd in CharacterData.Instance.GetCharacters())
+            {
+                send(new NetCharaChara()
+                {
+                    effort = cd.Value.effort,
+                    name = cd.Key,
+                    isOwn = cd.Value.isOwn,
+                    itemNames = new string[]
+                    {
+                        cd.Value.itemName1,
+                        cd.Value.itemName2,
+                        cd.Value.itemName3
+                    }
+                });
+            }
+        }
+        
         void SendFrameStart(OnMessageTransmitDelegate send)
         {
             send(new NetFrameStart()
@@ -527,8 +569,27 @@ namespace CPMod_Multiplayer
                 charaIndex = charaMapping.Get(u.CharacterCurrentData.name),
                 playerIndex = u.Team,
             });
+            
+            var gameObj = u.gameObject;
+            if (gameObj.GetComponent<UnitDeathMonitor>() == null)
+            {
+                var deathMon = gameObj.AddComponent<UnitDeathMonitor>();
+
+                deathMon.UnitId = id;
+                var self = this;
+                deathMon.OnDeath += SendUnitDeath;
+            }
 
             return id;
+        }
+
+        static void SendUnitDeath(int unitId)
+        {
+            Mod.logger.Log($"SendUnitDeath: {unitId}");
+            EnqueueAdhocPacket(new NetUnitDeath()
+            {
+                unitIndex = unitId
+            });
         }
 
         void SendUnitState(OnMessageTransmitDelegate send, Unit u)
