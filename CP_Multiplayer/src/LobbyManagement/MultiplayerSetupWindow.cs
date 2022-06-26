@@ -57,6 +57,8 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         void OnJoinRoom()
         {
+            SaveAll();
+            
             var address = transform.Find("Base/UI_Controls/Input_RoomNumber").GetComponent<TMP_InputField>().text;
             Lobby lobby = RemoteLobby.ConnectLobby(address);
             
@@ -67,6 +69,8 @@ namespace CPMod_Multiplayer.LobbyManagement
         
         private void ConnectToLobby(Lobby lobby)
         {
+            SaveAll();
+            
             transform.Find("Base/UI_Controls").gameObject.SetActive(false);
             transform.Find("Base/Text_Connecting").gameObject.SetActive(true);
 
@@ -83,6 +87,15 @@ namespace CPMod_Multiplayer.LobbyManagement
             };
             
             lobby.OnStateChange += callback;
+        }
+
+        private static void SaveAll()
+        {
+            SaveFileManager.Instance.SaveSetting();
+            SaveFileManager.Instance.SaveItem();
+            SaveFileManager.Instance.SaveCharacter();
+            SaveFileManager.Instance.SaveAchievement();
+            SaveFileManager.Instance.SaveTutorial();
         }
     }
 }

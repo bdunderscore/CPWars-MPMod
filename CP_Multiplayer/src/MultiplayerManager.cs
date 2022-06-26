@@ -250,5 +250,16 @@ namespace CPMod_Multiplayer
             
             Mod.logger.Log("Title screen scene injection complete");
         }
+
+        public static void SelectCharacterData(string charaName, int team)
+        {
+            if (!MultiplayerSession || MultiplayerFollower ||
+                CharacterData.Instance.GetCharacters().ContainsKey(charaName))
+            {
+                return;
+            }
+            
+            // TODO - select which player's character data should be used
+        }
     }
 }

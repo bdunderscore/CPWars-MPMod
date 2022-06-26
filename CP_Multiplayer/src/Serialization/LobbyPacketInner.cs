@@ -1,4 +1,5 @@
-﻿using MessagePack;
+﻿using System.Collections.Generic;
+using MessagePack;
 
 namespace CPMod_Multiplayer.Serialization
 {
@@ -79,6 +80,8 @@ namespace CPMod_Multiplayer.Serialization
         public bool ready;
         [Key(4)]
         public int teamIndex;
+        [Key(5)]
+        public Dictionary<string, NetCharaChara> characterRoster = new Dictionary<string, NetCharaChara>();
 
         public override string ToString()
         {

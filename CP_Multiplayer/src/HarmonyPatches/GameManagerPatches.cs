@@ -153,4 +153,12 @@ namespace CPMod_Multiplayer.HarmonyPatches
         }
     }
 
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.PopCharacter))]
+    static class GameManager_PopCharacter
+    {
+        static void Prefix(string name, int team, Unit popTargetUnit, bool isInitialize)
+        {
+            MultiplayerManager.SelectCharacterData(name, team);
+        }
+    }
 }

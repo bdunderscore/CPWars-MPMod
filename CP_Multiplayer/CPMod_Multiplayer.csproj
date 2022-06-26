@@ -331,6 +331,7 @@
     <Compile Include="mpc_generated\*.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\ClearSensor.cs" />
+    <Compile Include="src\HarmonyPatches\AchievementManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\ClearDialogPatches.cs" />
     <Compile Include="src\HarmonyPatches\GameInitializeWindowPatches.cs" />
     <Compile Include="src\HarmonyPatches\GameManagerPatches.cs" />
