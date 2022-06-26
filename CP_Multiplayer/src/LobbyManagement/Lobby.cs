@@ -21,6 +21,8 @@ namespace CPMod_Multiplayer.LobbyManagement
         public abstract LobbyState State { get; protected set; }
 
         public String LobbyAddress { get; protected set; }
+        public virtual int MyTeamIndex => Members.SelfIndex + 1;
+        public virtual Socket HostSocket => null;
 
         public delegate void DelegateOnError(string msg);
         public delegate void DelegateOnStateChange();

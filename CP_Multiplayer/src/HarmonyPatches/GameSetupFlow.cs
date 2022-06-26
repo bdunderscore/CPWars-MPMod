@@ -88,7 +88,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
             }
             catch (Exception e)
             {
-                Mod.logger.LogException("[GameSetupFlow] StartGame", e);
+                Mod.LogException("[GameSetupFlow] StartGame", e);
             }
         }
 
@@ -110,7 +110,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
             
             // Character ID -> players choosing that character
             Dictionary<string, List<int>> drafts = new Dictionary<string, List<int>>();
-            int[] initialCharacterCounts = new int[GameManager.Instance.teamNum];
+            int[] initialCharacterCounts = new int[GameManager.Instance.teamNum + 1];
 
             foreach (var member in LobbyManager.CurrentLobby.Members)
             {

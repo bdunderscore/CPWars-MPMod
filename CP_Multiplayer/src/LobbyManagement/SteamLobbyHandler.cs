@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using CPMod_Multiplayer.Serialization;
+using MessagePack;
 using Steamworks;
 using UnityEngine;
 
@@ -14,15 +15,21 @@ namespace CPMod_Multiplayer.LobbyManagement
         Joining,
         InLobby,
         GamePreparation, // establishing connections
+        ConnEstablished, // follower: Connection established, waiting for start
         GameInProgress,
         Error,
     }
 
     class SteamLobby : Lobby
     {
+        private const int START_TIMEOUT = 20;
+        
         private bool _isHost;
         public override bool IsHost => _isHost;
         public override LobbyState State { get; protected set; }
+
+        private int _teamIndex;
+        public override int MyTeamIndex => _teamIndex;
 
         public string Token => _matchmaker.Token;
         
@@ -31,9 +38,18 @@ namespace CPMod_Multiplayer.LobbyManagement
         private SteamLobbyState _state;
 
         private Dictionary<CSteamID, LobbyMember> _idToMember = new Dictionary<CSteamID, LobbyMember>();
+        
         private Callback<LobbyChatMsg_t> cb_LobbyChatMessage;
         private Callback<LobbyChatUpdate_t> cb_LobbyChatUpdate;
         private Callback<LobbyDataUpdate_t> cb_LobbyDataUpdate;
+        private Callback<SteamNetConnectionStatusChangedCallback_t> cb_ConnStatusChanged;
+        
+        private float _gameStartTimeout;
+
+        private HSteamListenSocket _listenSocket;
+        private Socket _hostSocket;
+        
+        public virtual Socket HostSocket => _hostSocket;
 
         protected void Awake()
         {
@@ -53,8 +69,12 @@ namespace CPMod_Multiplayer.LobbyManagement
             cb_LobbyChatMessage = Callback<LobbyChatMsg_t>.Create(OnLobbyChatMessage);
             cb_LobbyChatUpdate = Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
             cb_LobbyDataUpdate = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdate);
+            cb_ConnStatusChanged = Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatusChanged);
+
+            _listenSocket =
+                SteamNetworkingSockets.CreateListenSocketP2P(LOBBY_PORT, 0, Array.Empty<SteamNetworkingConfigValue_t>());
         }
-        
+
         private void OnDestroy()
         {
             _matchmaker?.Dispose();
@@ -62,8 +82,16 @@ namespace CPMod_Multiplayer.LobbyManagement
             cb_LobbyChatMessage?.Dispose();
             cb_LobbyChatUpdate?.Dispose();
             cb_LobbyDataUpdate?.Dispose();
+            cb_ConnStatusChanged?.Dispose();
+            _hostSocket?.Dispose();
+
+            if (_listenSocket != default)
+            {
+                SteamNetworkingSockets.CloseListenSocket(_listenSocket);
+            }
 
             _state = SteamLobbyState.Error;
+            
         }
 
         public static SteamLobby CreateInstance()
@@ -108,27 +136,35 @@ namespace CPMod_Multiplayer.LobbyManagement
             LobbyAddress = _matchmaker.Token;
             // Sync all player data
 
-            int numPlayers = SteamMatchmaking.GetNumLobbyMembers(_matchmaker.LobbyId);
-            for (int i = 0; i < numPlayers; i++)
-            {
-                SyncPlayer(SteamMatchmaking.GetLobbyMemberByIndex(_matchmaker.LobbyId, i));
-            }
+            SyncAllPlayers();
 
             State = LobbyState.READY;
             RaiseStateChange();
         }
 
+        private void SyncAllPlayers()
+        {
+            int numPlayers = SteamMatchmaking.GetNumLobbyMembers(_matchmaker.LobbyId);
+            for (int i = 0; i < numPlayers; i++)
+            {
+                SyncPlayer(SteamMatchmaking.GetLobbyMemberByIndex(_matchmaker.LobbyId, i));
+            }
+        }
+
         private void SyncPlayer(CSteamID steamId)
         {
             LobbyMember member;
+            var isSelf = steamId == SteamUser.GetSteamID();
             if (!_idToMember.TryGetValue(steamId, out member))
             {
-                if (!Members.TryJoin(null, out member))
+                if (!Members.TryJoin(null, out member, isSelf))
                 {
                     RaiseError("メンバーが多すぎ！！！");
                     _state = SteamLobbyState.Error;
                     return;
                 }
+
+                _idToMember[steamId] = member;
                 
                 SteamInfoLookup.LookupSteamInfo(steamId, (_id, name) =>
                 {
@@ -166,12 +202,198 @@ namespace CPMod_Multiplayer.LobbyManagement
                 }
             }
         }
+        
+#region Game initiation and connection
+        public override void StartGame()
+        {
+            if (_state != SteamLobbyState.InLobby) throw new Exception("Not in InLobby state");
+            if (!IsHost) return;
 
+            _state = SteamLobbyState.GamePreparation;
+            SteamMatchmaking.SendLobbyChatMsg(_matchmaker.LobbyId, new byte[] {0}, 1);
+            SteamMatchmaking.SetLobbyJoinable(_matchmaker.LobbyId, false);
+            _gameStartTimeout = Time.unscaledTime + START_TIMEOUT;
+        }
+        
         private void OnLobbyChatMessage(LobbyChatMsg_t param)
         {
-            // TODO
+            var host = SteamMatchmaking.GetLobbyOwner(_matchmaker.LobbyId);
+
+            if (param.m_ulSteamIDUser != host.m_SteamID ||
+                param.m_ulSteamIDLobby != _matchmaker.LobbyId.m_SteamID) return;
+            if (IsHost) return;
+
+            var identity = new SteamNetworkingIdentity();
+            identity.SetSteamID(host);
+            
+            // A chat message indicates we're entering the game preparation phase
+            _hostSocket = new Socket(SteamNetworkingSockets.ConnectP2P(
+                ref identity, LOBBY_PORT, 0, Array.Empty<SteamNetworkingConfigValue_t>()
+            ));
+            _state = SteamLobbyState.GamePreparation;
+            _gameStartTimeout = Time.unscaledTime + START_TIMEOUT;
         }
 
+        private void OnConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t param)
+        {
+            Mod.logger.Log($"[SteamLobby] Connection status changed: {param.m_hConn} => {param.m_info.m_eState}");
+            if (!IsHost)
+            {
+                if (param.m_hConn != _hostSocket?.Handle)
+                {
+                    Mod.logger.Warning("[RemoteLobby] Unexpected status change callback for unknown socket handle");
+                    return;
+                }
+                
+                switch (param.m_info.m_eState)
+                {
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected:
+                        if (State == LobbyState.JOINING)
+                        {
+                            _state = SteamLobbyState.ConnEstablished;
+                        }
+                        break;
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_FinWait:
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ClosedByPeer:
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
+                    {
+                        _hostSocket.Dispose();
+                        RaiseError("Connection error: " + param.m_info.m_szEndDebug);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // If host...
+                switch (param.m_info.m_eState)
+                {
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connecting:
+                    {
+                        if (_state == SteamLobbyState.GamePreparation && 
+                            _idToMember.TryGetValue(param.m_info.m_identityRemote.GetSteamID(), out var member))
+                        {
+                            SteamNetworkingSockets.AcceptConnection(param.m_hConn);
+                            member.Socket = new Socket(param.m_hConn);
+                            CheckReadyToStart();
+                        }
+                        else
+                        {
+                            Mod.logger.Warning("[SteamLobby] Rejecting bogon connection from " +
+                                               param.m_info.m_identityRemote.GetSteamID() + " in state " + _state);
+
+                            foreach (var k in _idToMember.Keys)
+                            {
+                                Mod.logger.Log($"[SteamLobby] Known member: {k}");
+                            }
+                            
+                            SteamNetworkingSockets.CloseConnection(param.m_hConn, 0, "", false);
+                        }
+
+                        break;
+                    }
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_FinWait:
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ClosedByPeer:
+                    case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
+                    {
+                        foreach (var member in _idToMember.Values)
+                        {
+                            if (member.Socket?.Handle == param.m_hConn)
+                            {
+                                if (_state == SteamLobbyState.GameInProgress || _state == SteamLobbyState.GamePreparation)
+                                {
+                                    // TODO - reconnect logic?
+                                    RaiseError("プレイヤーが切だんされました…");
+                                }
+                                
+                                member.Socket = null;
+                                break;
+                            }
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void CheckReadyToStart()
+        {
+            foreach (var member in Members)
+            {
+                if (Members.Self == member) continue;
+                if (member.Socket == null) return;
+            }
+
+            _state = SteamLobbyState.GameInProgress;
+            Members.Defragment();
+            foreach (var member in Members)
+            {
+                if (Members.Self == member) continue;
+                
+                member.Socket.Send(new LobbyStartGame()
+                {
+                    teamIndex = member.MemberState.teamIndex 
+                }.ToNetPacket());
+                
+                Mod.logger.Log($"[SteamLobby] Sent start game packet with team index " +
+                               $"{member.MemberState.teamIndex} to {member.MemberState.displayName}");
+            }
+
+            _teamIndex = _idToMember[SteamUser.GetSteamID()].MemberState.teamIndex;
+            
+            Mod.logger.Log($"[SteamLobby] Starting game with team index {_teamIndex}");
+
+            MainSceneManager.Instance.StartGame();
+        }
+
+        protected override void Update()
+        {
+            base.Update();
+
+            if (_state == SteamLobbyState.GamePreparation || _state == SteamLobbyState.ConnEstablished)
+            {
+                if (Time.unscaledTime > _gameStartTimeout)
+                {
+                    RaiseError("なんか上手くいかんかったっぽい");
+                    return;
+                }
+            }
+
+            if (_state == SteamLobbyState.ConnEstablished)
+            {
+                if (_hostSocket.TryReceive(out var pkt))
+                {
+                    try
+                    {
+                        var data = MessagePackSerializer.Deserialize<NetPacket>(pkt);
+
+                        if (data is LobbyPacket lobbyPkt && lobbyPkt.lobbyPacket is LobbyStartGame startPkt)
+                        {
+                            Mod.logger.Log($"[SteamLobby] Received start game packet with team index " +
+                                           $"{startPkt.teamIndex}");
+                            _teamIndex = startPkt.teamIndex;
+                            MainSceneManager.Instance.StartGame();
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Mod.LogException("[SteamLobby] Error while receiving lobby packet", e);
+                        RaiseError("なんか変なメッセージが届いた…");
+                    }
+                }
+            }
+        }
+
+        public override void OnGameOver()
+        {
+            _state = SteamLobbyState.InLobby;
+
+            _hostSocket?.Dispose();
+            _hostSocket = null;
+        }
+
+        #endregion
     }
     
     enum MatchmakerState

@@ -25,10 +25,17 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         internal bool TryJoin(Socket socket, out LobbyMember member)
         {
+            return TryJoin(socket, out member, false);
+        }
+        
+        internal bool TryJoin(Socket socket, out LobbyMember member, bool isSelf)
+        {
             for (int i = _members.Length - 1; i >= 0; i--)
             {
                 if (_members[i] == null)
                 {
+                    if (isSelf) SelfIndex = i;
+                    
                     member = new LobbyMember(socket, i);
                     _members[i] = member;
                     OnJoin?.Invoke(member);

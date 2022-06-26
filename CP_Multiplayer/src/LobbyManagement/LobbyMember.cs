@@ -17,8 +17,19 @@ namespace CPMod_Multiplayer.LobbyManagement
                 teamIndex = index
             };
         }
-        
-        public Socket Socket { get; private set; }
+
+        private Socket _socket;
+
+        public Socket Socket
+        {
+            get { return _socket;  }
+            set
+            {
+                if (_socket == value) return;
+                _socket?.Dispose();
+                _socket = value;
+            }
+        }
 
         public string DisplayName => MemberState.displayName;
         public bool IsHost { get; internal set; } = false;

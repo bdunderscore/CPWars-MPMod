@@ -189,7 +189,8 @@ namespace CPMod_Multiplayer
                 return;
             }
             var netPuppet = new GameObject("NetworkPuppet");
-            MyTeam = lobby.Members.SelfIndex + 1;
+            MyTeam = lobby.MyTeamIndex;
+            Mod.logger.Log($"MyTeamIndex={MyTeam}");
 
             if (!MultiplayerFollower)
             {
