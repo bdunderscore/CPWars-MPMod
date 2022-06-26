@@ -48,7 +48,8 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         void OnCreateRoom()
         {
-            var lobby = HostedLobby.CreateLobby();
+            var lobby = SteamLobby.CreateInstance();
+            lobby.CreateLobby();
 
             LobbyManager.CurrentLobby = lobby;
 
@@ -60,7 +61,8 @@ namespace CPMod_Multiplayer.LobbyManagement
             SaveAll();
             
             var address = transform.Find("Base/UI_Controls/Input_RoomNumber").GetComponent<TMP_InputField>().text;
-            Lobby lobby = RemoteLobby.ConnectLobby(address);
+            var lobby = SteamLobby.CreateInstance();
+            lobby.JoinLobby(address);
             
             LobbyManager.CurrentLobby = lobby;
             

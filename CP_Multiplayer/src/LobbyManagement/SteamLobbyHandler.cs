@@ -1,189 +1,335 @@
 ﻿using System;
+using System.Collections.Generic;
 using CPMod_Multiplayer.Serialization;
 using Steamworks;
 using UnityEngine;
 
 namespace CPMod_Multiplayer.LobbyManagement
 {
+    using Random = UnityEngine.Random;
+
     enum SteamLobbyState
     {
-        CREATING,
-        SEARCHING,
-        JOINING,
-        CONNECT_TO_HOST,
-        ESTABLISHED
+        Init,
+        Joining,
+        InLobby,
+        GamePreparation, // establishing connections
+        GameInProgress,
+        Error,
     }
 
-    internal class SteamLobbyMemberState
+    class SteamLobby : Lobby
     {
-        internal CSteamID SteamID;
-        internal long Disambiguator;
-        internal int? P2PPort;
+        private bool _isHost;
+        public override bool IsHost => _isHost;
+        public override LobbyState State { get; protected set; }
+
+        public string Token => _matchmaker.Token;
         
-        internal string SteamName;
-        internal Texture2D Avatar;
-        
-        internal bool IsDataReady;
-        internal bool IsPlayerReady;
-        internal Socket MemberConnection; // valid only for the host
-
-        public LobbyMemberState MemberState;
-
-        public delegate void OnChangeDelegate();
-        public event OnChangeDelegate OnChange;
-
-    }
-    
-    /**
-     * Lobby protocol:
-     *
-     * All clients broadcast out their state via metadata keys
-     * Clients establish connections to the host. The host posts the port to connect to as a metadata key.
-     * 
-     * On game start - the host sends out a prepare message to all clients via the socket interface. This starts the
-     * UI transition; it then follows up with the initial game state, which will be ingested once the GameScene loads.
-     * Note that we must prevent the initial game scene from loading any units to avoid display glitching if the initial
-     * data is delayed (TODO)
-     */
-    public class SteamLobbyHandler : MonoBehaviour
-    {
-        private const int MAX_MEMBERS = 7;
-        private const string K_GAMEID = "karapari_wars:gameid";
-        private const string K_GAMETAG = "karapari_wars:gamename";
-        private const string V_GAMETAG = "multiplayer_mod_v0";
-        
-        private long? lobbyTag;
-        private bool isHost;
-        private bool isConnected;
-
+        private Lobby _innerLobby;
+        private Matchmaker _matchmaker;
         private SteamLobbyState _state;
-        private CSteamID _lobbySteamId;
 
-        internal delegate void ReportError(string msg);
-        internal delegate void ReportReady();
+        private Dictionary<CSteamID, LobbyMember> _idToMember = new Dictionary<CSteamID, LobbyMember>();
+        private Callback<LobbyChatMsg_t> cb_LobbyChatMessage;
+        private Callback<LobbyChatUpdate_t> cb_LobbyChatUpdate;
+        private Callback<LobbyDataUpdate_t> cb_LobbyDataUpdate;
 
-        internal ReportError OnError = (msg) => { };
-        internal ReportReady OnReady = () => { };
-
-        private CallResult<LobbyCreated_t> callLobbyCreate;
-        private CallResult<LobbyMatchList_t> callLobbyList;
-        private CallResult<LobbyEnter_t> callLobbyEnter;
-        private Callback<LobbyChatUpdate_t> callbackLobbyChatUpdate;
-        private Callback<LobbyDataUpdate_t> callbackLobbyDataUpdate;
-
-        void OnEnable()
+        protected void Awake()
         {
-            if (lobbyTag == null)
+            _state = SteamLobbyState.Init;
+            _matchmaker = new Matchmaker();
+            _innerLobby = null;
+            LobbyManager.CurrentLobby = this; // there can be only one
+
+            _matchmaker.OnError += (s) =>
             {
-                _state = SteamLobbyState.CREATING;
-                var call = SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypeFriendsOnly, MAX_MEMBERS);
-                callLobbyCreate = CallResult<LobbyCreated_t>.Create();
-                callLobbyCreate.Set(call, OnLobbyCreate);
+                _state = SteamLobbyState.Error;
+                RaiseError(s);
+            };
+
+            _matchmaker.OnJoined += OnJoined;
+            
+            cb_LobbyChatMessage = Callback<LobbyChatMsg_t>.Create(OnLobbyChatMessage);
+            cb_LobbyChatUpdate = Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
+            cb_LobbyDataUpdate = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdate);
+        }
+        
+        private void OnDestroy()
+        {
+            _matchmaker?.Dispose();
+            UnityEngine.Object.Destroy(_innerLobby);
+            cb_LobbyChatMessage?.Dispose();
+            cb_LobbyChatUpdate?.Dispose();
+            cb_LobbyDataUpdate?.Dispose();
+
+            _state = SteamLobbyState.Error;
+        }
+
+        public static SteamLobby CreateInstance()
+        {
+            var go = new GameObject("SteamLobby");
+            DontDestroyOnLoad(go);
+            try
+            {
+                var lobby = go.AddComponent<SteamLobby>();
+                
+                return lobby;
+            }
+            catch (Exception e)
+            {
+                Mod.LogException("CreateLobby", e);
+                Destroy(go);
+                return null;
+            }
+        }
+        
+        public void CreateLobby()
+        {
+            if (_state != SteamLobbyState.Init) throw new Exception("Not in Init state");
+            _matchmaker.CreateLobby();
+            _state = SteamLobbyState.Joining;
+            State = LobbyState.JOINING;
+            RaiseStateChange();
+        }
+
+        public void JoinLobby(string token)
+        {
+            if (_state != SteamLobbyState.Init) throw new Exception("Not in Init state");
+            _matchmaker.JoinLobby(token);
+            _state = SteamLobbyState.Joining;
+            State = LobbyState.JOINING;
+            RaiseStateChange();
+        }
+
+        private void OnJoined()
+        {
+            _state = SteamLobbyState.InLobby;
+            LobbyAddress = _matchmaker.Token;
+            // Sync all player data
+
+            int numPlayers = SteamMatchmaking.GetNumLobbyMembers(_matchmaker.LobbyId);
+            for (int i = 0; i < numPlayers; i++)
+            {
+                SyncPlayer(SteamMatchmaking.GetLobbyMemberByIndex(_matchmaker.LobbyId, i));
+            }
+
+            State = LobbyState.READY;
+            RaiseStateChange();
+        }
+
+        private void SyncPlayer(CSteamID steamId)
+        {
+            LobbyMember member;
+            if (!_idToMember.TryGetValue(steamId, out member))
+            {
+                if (!Members.TryJoin(null, out member))
+                {
+                    RaiseError("メンバーが多すぎ！！！");
+                    _state = SteamLobbyState.Error;
+                    return;
+                }
+                
+                SteamInfoLookup.LookupSteamInfo(steamId, (_id, name) =>
+                {
+                    member.MemberState.displayName = name;
+                    member.RaiseOnChange();
+                });
+            }
+            
+            // TODO - sync club members
+        }
+
+        private void OnLobbyDataUpdate(LobbyDataUpdate_t param)
+        {
+            if (param.m_ulSteamIDLobby != param.m_ulSteamIDMember)
+            {
+                SyncPlayer(new CSteamID(param.m_ulSteamIDMember));
             }
             else
             {
-                _state = SteamLobbyState.SEARCHING;
-                SteamMatchmaking.AddRequestLobbyListStringFilter(K_GAMEID, lobbyTag.Value.ToString(), 
-                    ELobbyComparison.k_ELobbyComparisonEqual);
-                SteamMatchmaking.AddRequestLobbyListStringFilter(K_GAMETAG, V_GAMETAG, 
-                    ELobbyComparison.k_ELobbyComparisonEqual);
-                var call = SteamMatchmaking.RequestLobbyList();
-                callLobbyList = CallResult<LobbyMatchList_t>.Create();
-                callLobbyList.Set(call, OnLobbyList);
+                _isHost = SteamUser.GetSteamID() == SteamMatchmaking.GetLobbyOwner(_matchmaker.LobbyId);
             }
-        }
-
-        private void OnLobbyList(LobbyMatchList_t list, bool bioError)
-        {
-            callLobbyList.Dispose();
-            
-            if (list.m_nLobbiesMatching < 1)
-            {
-                OnError("部屋が見つからなかった…");
-                return;
-            } else if (list.m_nLobbiesMatching > 1)
-            {
-                OnError("部屋番号が重複しています");
-                return;
-            }
-            
-            var lobby = SteamMatchmaking.GetLobbyByIndex(0);
-            _state = SteamLobbyState.JOINING;
-            callLobbyEnter = CallResult<LobbyEnter_t>.Create(OnLobbyEnter);
-            SteamMatchmaking.JoinLobby(lobby);
-        }
-
-        private void OnLobbyEnter(LobbyEnter_t enterResult, bool bioError)
-        {
-            callLobbyEnter.Dispose();
-            if (enterResult.m_bLocked)
-            {
-                OnError("部屋がロックされています");
-                return;
-            }
-            if (enterResult.m_EChatRoomEnterResponse != (uint) EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess)
-            {
-                OnError("部屋に入れられませんでした");
-                Mod.logger.Log("Lobby enter error: " + (EChatRoomEnterResponse)enterResult.m_EChatRoomEnterResponse);
-                return;
-            }
-            
-            AfterJoinLobby();
-        }
-
-        private void AfterJoinLobby()
-        {
-            callbackLobbyChatUpdate = Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
-            callbackLobbyDataUpdate = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdate);
-
-            OnReady();
-            
-            LoadAllLobbyData();
-        }
-
-        private void LoadAllLobbyData()
-        {
-            
-        }
-        
-        private void OnLobbyDataUpdate(LobbyDataUpdate_t param)
-        {
-            throw new NotImplementedException();
         }
 
         private void OnLobbyChatUpdate(LobbyChatUpdate_t param)
         {
-            throw new NotImplementedException();
-        }
-
-        void OnDestroy()
-        {
-            if (_lobbySteamId.IsValid())
+            if (0 != (param.m_rgfChatMemberStateChange & (uint)EChatMemberStateChange.k_EChatMemberStateChangeEntered))
             {
-                SteamMatchmaking.LeaveLobby(_lobbySteamId);
+                SyncPlayer(new CSteamID(param.m_ulSteamIDUserChanged));
+            } else if (0 != (param.m_rgfChatMemberStateChange & (uint)EChatMemberStateChange.k_EChatMemberStateChangeLeft))
+            {
+                LobbyMember member;
+                if (_idToMember.TryGetValue(new CSteamID(param.m_ulSteamIDUserChanged), out member))
+                {
+                    member.Remove();
+                }
             }
-            callLobbyCreate.Dispose();
-            callLobbyList.Dispose();
         }
 
-        private void OnLobbyCreate(LobbyCreated_t param, bool biofailure)
+        private void OnLobbyChatMessage(LobbyChatMsg_t param)
+        {
+            // TODO
+        }
+
+    }
+    
+    enum MatchmakerState
+    {
+        Init,
+        Creating,
+        Searching,
+        Joining,
+        Ready,
+        Error
+    }
+    
+    internal class Matchmaker : IDisposable
+    {
+        private MatchmakerState _state;
+        private CSteamID _lobbyId;
+        private CSteamID _ownerId;
+
+        public string Token { get; private set; } = null;
+        public CSteamID LobbyId => _lobbyId;
+        
+        private Callback<LobbyCreated_t> cb_LobbyCreated;
+        private Callback<LobbyMatchList_t> cb_LobbyMatchList;
+        private Callback<LobbyEnter_t> cb_LobbyJoin;
+        private Callback<LobbyDataUpdate_t> cb_OnDataUpdate;
+
+        public delegate void DelegateOnError(string msg);
+
+        public delegate void DelegateOnJoined();
+        
+
+        public event DelegateOnError OnError;
+        public event DelegateOnJoined OnJoined;
+
+        static string GenerateToken()
+        {
+            return $"{Random.Range(0, 9999):D4}-{Random.Range(0, 9999):D4}";
+        }
+
+        static List<KeyValuePair<string, string>> GetLobbyFilters(string token)
+        {
+            var list = new List<KeyValuePair<string, string>>();
+            
+            list.Add(new KeyValuePair<string, string>("cpwars:netmod:proto", "0"));
+            list.Add(new KeyValuePair<string, string>("cpwars:netmod:token", token));
+
+            return list;
+        }
+
+        internal Matchmaker()
+        {
+            _state = MatchmakerState.Init;
+        }
+
+        public void CreateLobby()
+        {
+            if (_state != MatchmakerState.Init) throw new Exception("Not in initializing state");
+
+            cb_LobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
+            _state = MatchmakerState.Creating;
+            SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypePublic, MemberSet.MAX_PLAYERS);
+        }
+
+        private void OnLobbyCreated(LobbyCreated_t param)
         {
             if (param.m_eResult != EResult.k_EResultOK)
             {
-                OnError(param.m_eResult.ToString());
+                _state = MatchmakerState.Error;
+                OnError?.Invoke("ロビー作成にしっぱいしました・・・");
                 return;
             }
 
-            if (biofailure)
+            _lobbyId = new CSteamID(param.m_ulSteamIDLobby);
+            
+            cb_LobbyCreated?.Dispose();
+            cb_LobbyCreated = null;
+
+            Token = GenerateToken();
+            Mod.logger.Log($"[Matchmaker] Created lobby: {_lobbyId}");
+            foreach (var kv in GetLobbyFilters(Token))
             {
-                OnError("IO failure");
+                Mod.logger.Log($"[Matchmaker] Setting lobby data {kv.Key}={kv.Value}");
+                SteamMatchmaking.SetLobbyData(_lobbyId, kv.Key, kv.Value);
+            }
+
+            AfterJoin();
+        }
+
+        private void AfterJoin()
+        {
+            _state = MatchmakerState.Ready;
+            
+            OnJoined?.Invoke();
+        }
+
+        public void JoinLobby(string token)
+        {
+            if (_state != MatchmakerState.Init) throw new Exception("Not in initializing state");
+
+            Token = token;
+            foreach (var kv in GetLobbyFilters(Token))
+            {
+                Mod.logger.Log($"[Matchmaker] Setting lobby filter {kv.Key}={kv.Value}");
+                SteamMatchmaking.AddRequestLobbyListStringFilter(kv.Key, kv.Value, ELobbyComparison.k_ELobbyComparisonEqual);
+            }
+
+            cb_LobbyMatchList = Callback<LobbyMatchList_t>.Create(OnLobbyMatchList);
+            _state = MatchmakerState.Searching;
+            var rv = SteamMatchmaking.RequestLobbyList();
+            Mod.logger.Log($"[Matchmaker] RequestLobbyList: {rv}");
+        }
+
+        private void OnLobbyMatchList(LobbyMatchList_t param)
+        {
+            Mod.logger.Log($"[Matchmaker] Lobby search results: {param.m_nLobbiesMatching}");
+            
+            if (param.m_nLobbiesMatching == 0)
+            {
+                OnError?.Invoke("ロビーが見つかりませんでした…");
+                _state = MatchmakerState.Error;
+                return;
+            }
+            
+            _lobbyId = SteamMatchmaking.GetLobbyByIndex(0);
+            _state = MatchmakerState.Joining;
+            cb_LobbyMatchList?.Dispose();
+            cb_LobbyMatchList = null;
+
+            cb_LobbyJoin = Callback<LobbyEnter_t>.Create(OnLobbyEnter);
+            SteamMatchmaking.JoinLobby(_lobbyId);
+        }
+
+        private void OnLobbyEnter(LobbyEnter_t param)
+        {
+            if (param.m_ulSteamIDLobby != _lobbyId.m_SteamID)
+            {
+                OnError?.Invoke("なんか変なところに入っちゃった…");
+                _state = MatchmakerState.Error;
                 return;
             }
 
-            _lobbySteamId = new CSteamID(param.m_ulSteamIDLobby);
-            _state = SteamLobbyState.ESTABLISHED;
-            // TODO - open listen socket
-            AfterJoinLobby();
+            if (param.m_EChatRoomEnterResponse != (UInt32)EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess)
+            {
+                OnError?.Invoke("ロビーに入れなかった…");
+                _state = MatchmakerState.Error;
+                return;
+            }
+            
+            AfterJoin();
+        }
+
+        public void Dispose()
+        {
+            _state = MatchmakerState.Error;
+            cb_LobbyCreated?.Dispose();
+            cb_LobbyMatchList?.Dispose();
+            cb_LobbyJoin?.Dispose();
+            cb_OnDataUpdate?.Dispose();
         }
     }
 }

@@ -32,11 +32,10 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         protected readonly Queue<DeferredEvent> _eventQueue = new Queue<DeferredEvent>();
 
-        public readonly MemberSet Members = new MemberSet();
+        public MemberSet Members { get; internal set; }= new MemberSet();
 
         protected void Awake()
         {
-            LobbyManager.CurrentLobby = this; // there can be only one
         }
         
         protected void RaiseError(string msg)

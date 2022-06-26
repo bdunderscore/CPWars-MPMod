@@ -43,7 +43,7 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         public event OnChangeDelegate OnChange;
 
-        public void Close()
+        public void Remove()
         {
             Disconnected = true;
             Ready = false;

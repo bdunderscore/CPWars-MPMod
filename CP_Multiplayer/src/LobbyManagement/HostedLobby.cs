@@ -27,14 +27,17 @@ namespace CPMod_Multiplayer.LobbyManagement
         HostedLobby()
         {
             var steamId = SteamUser.GetSteamID();
-            Members.SetMemberState(0, new LobbyMemberState()
-                {
-                    displayName = SteamFriends.GetPersonaName()
-                }
-            );
-            Members.SelfIndex = 0;
-            Members.Self.OnChange += OnMemberChange;
-            Members.OnRenumber += OnRenumber;
+            if (Members.SelfIndex < 0)
+            {
+                Members.SetMemberState(0, new LobbyMemberState()
+                    {
+                        displayName = SteamFriends.GetPersonaName()
+                    }
+                );
+                Members.SelfIndex = 0;
+                Members.Self.OnChange += OnMemberChange;
+                Members.OnRenumber += OnRenumber;
+            }
         }
 
         void OnRenumber(int from, int to)
@@ -203,7 +206,7 @@ namespace CPMod_Multiplayer.LobbyManagement
             if (_listenSocket != default) SteamNetworkingSockets.CloseListenSocket(_listenSocket);
             foreach (var member in Members)
             {
-                member.Close();
+                member.Remove();
             }
 
             State = LobbyState.ERROR;

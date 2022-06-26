@@ -7,7 +7,7 @@ namespace CPMod_Multiplayer.LobbyManagement
 {
     public class MemberSet : IEnumerable<LobbyMember>
     {
-        const int MAX_PLAYERS = 7;
+        public const int MAX_PLAYERS = 7;
         
         public delegate void DelOnJoin(LobbyMember member);
         public delegate void DelOnPart(LobbyMember member);
@@ -91,7 +91,7 @@ namespace CPMod_Multiplayer.LobbyManagement
         internal void Part(int index)
         {
             var member = _members[index];
-            member.Close();
+            member.Remove();
             OnPart?.Invoke(member);
             _members[index] = null;
         }
