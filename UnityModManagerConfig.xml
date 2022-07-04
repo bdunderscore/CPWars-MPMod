@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<Repository>https://raw.githubusercontent.com/newman55/unity-mod-manager/master/Repository_beta_13.json</Repository>
+	<HomePage>https://www.nexusmods.com/site/mods/21/</HomePage>
+	<GameInfo Name="Colorful Party Wars">
+		<Folder>ColorfulPartyWars</Folder>
+		<ModsDirectory>Mods</ModsDirectory>
+		<ModInfo>Info.json</ModInfo>
+		<GameExe>ColorfulPartyWars.exe</GameExe>
+		<EntryPoint>[UnityEngine.UIModule.dll]UnityEngine.Canvas.cctor:Before</EntryPoint>
+		<StartingPoint>[Assembly-CSharp.dll]MainSceneManager.Awake:After</StartingPoint>
+		<UIStartingPoint>[Assembly-CSharp.dll]MainMenuManager.Start:After</UIStartingPoint>
+	</GameInfo>
+</Config>
