@@ -67,6 +67,12 @@ namespace CPMod_Multiplayer.HarmonyPatches
     {
         private static bool Prefix(Unit __instance, ref int __result)
         {
+            if (__instance.Team >= GameManager.Instance.clubList.Count)
+            {
+                Mod.logger.Error($"Unit {__instance.Name} has team {__instance.Team} which is out of range for club " +
+                                 $"list of size {GameManager.Instance.clubList.Count} (teamNum {GameManager.Instance.teamNum})");
+            }
+            
             if (MultiplayerManager.instance != null &&
                 MultiplayerManager.instance.StatusOverrides.TryGetValue(__instance.Name, out var value))
             {

@@ -49,8 +49,8 @@ namespace CPMod_Multiplayer.LobbyManagement
 
         internal void Defragment()
         {
-            int firstEmpty = 1;
-            for (int i = 1; i < _members.Length; i++)
+            int firstEmpty = 0;
+            for (int i = 0; i < _members.Length; i++)
             {
                 if (_members[i] != null)
                 {

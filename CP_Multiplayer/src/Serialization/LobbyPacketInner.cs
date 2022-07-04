@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using MessagePack;
 
 namespace CPMod_Multiplayer.Serialization
@@ -111,9 +112,11 @@ namespace CPMod_Multiplayer.Serialization
         [Key(0)]
         public int teamIndex = -1;
 
+        [Key(1)] public string[] clubList;
+
         public override string ToString()
         {
-            return $"[LobbyStartGame]";
+            return $"[LobbyStartGame] {nameof(teamIndex)}: {teamIndex}, {nameof(clubList)}: {clubList}";
         }
     }
 

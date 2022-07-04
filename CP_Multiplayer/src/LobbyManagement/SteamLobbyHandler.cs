@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using CPMod_Multiplayer.HarmonyPatches;
 using CPMod_Multiplayer.Serialization;
 using MessagePack;
 using Steamworks;
@@ -49,7 +50,7 @@ namespace CPMod_Multiplayer.LobbyManagement
         private HSteamListenSocket _listenSocket;
         private Socket _hostSocket;
         
-        public virtual Socket HostSocket => _hostSocket;
+        public override Socket HostSocket => _hostSocket;
 
         protected void Awake()
         {
@@ -248,9 +249,14 @@ namespace CPMod_Multiplayer.LobbyManagement
                 switch (param.m_info.m_eState)
                 {
                     case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected:
-                        if (State == LobbyState.JOINING)
+                        if (_state == SteamLobbyState.GamePreparation)
                         {
                             _state = SteamLobbyState.ConnEstablished;
+                        }
+                        else
+                        {
+                            HostSocket?.Dispose();
+                            _hostSocket = null;
                         }
                         break;
                     case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_FinWait:
@@ -325,26 +331,39 @@ namespace CPMod_Multiplayer.LobbyManagement
                 if (member.Socket == null) return;
             }
 
-            _state = SteamLobbyState.GameInProgress;
-            Members.Defragment();
-            foreach (var member in Members)
+            try
             {
-                if (Members.Self == member) continue;
-                
-                member.Socket.Send(new LobbyStartGame()
+                _state = SteamLobbyState.GameInProgress;
+                Members.Defragment();
+
+                MultiplayerManager.instance.SetupClubs(Members);
+                var clubList = MultiplayerManager.instance.clubList.ToArray();
+
+                foreach (var member in Members)
                 {
-                    teamIndex = member.MemberState.teamIndex 
-                }.ToNetPacket());
-                
-                Mod.logger.Log($"[SteamLobby] Sent start game packet with team index " +
-                               $"{member.MemberState.teamIndex} to {member.MemberState.displayName}");
+                    if (Members.Self == member) continue;
+
+                    member.Socket.Send(new LobbyStartGame()
+                    {
+                        teamIndex = member.MemberState.teamIndex,
+                        clubList = clubList,
+                    }.ToNetPacket());
+                    member.Socket.Flush();
+
+                    Mod.logger.Log($"[SteamLobby] Sent start game packet with team index " +
+                                   $"{member.MemberState.teamIndex} to {member.MemberState.displayName}");
+                }
+
+                _teamIndex = _idToMember[SteamUser.GetSteamID()].MemberState.teamIndex;
+
+                Mod.logger.Log($"[SteamLobby] Starting game with team index {_teamIndex}");
+
+                MainSceneManager.Instance.StartGame();
             }
-
-            _teamIndex = _idToMember[SteamUser.GetSteamID()].MemberState.teamIndex;
-            
-            Mod.logger.Log($"[SteamLobby] Starting game with team index {_teamIndex}");
-
-            MainSceneManager.Instance.StartGame();
+            catch (Exception e)
+            {
+                Mod.LogException("[SteamLobby] Error starting game", e);
+            }
         }
 
         protected override void Update()
@@ -373,7 +392,13 @@ namespace CPMod_Multiplayer.LobbyManagement
                             Mod.logger.Log($"[SteamLobby] Received start game packet with team index " +
                                            $"{startPkt.teamIndex}");
                             _teamIndex = startPkt.teamIndex;
+                            MultiplayerManager.instance.clubList = new List<string>(startPkt.clubList);
                             MainSceneManager.Instance.StartGame();
+                            _state = SteamLobbyState.GameInProgress;
+                        }
+                        else
+                        {
+                            Mod.logger.Log($"[SteamLobby] Received unknown packet {data}");
                         }
                     }
                     catch (Exception e)

@@ -39,6 +39,7 @@ namespace CPMod_Multiplayer.HarmonyPatches
             if (MultiplayerManager.MultiplayerSession)
             {
                 GameSetup.StartGame(__instance);
+                Mod.logger.Log($"=== Team list: " + GameManager.Instance.clubList.Join(x => x, ","));
                 return false;
             }
 
@@ -73,7 +74,8 @@ namespace CPMod_Multiplayer.HarmonyPatches
             try
             {
                 NextBGM();
-                SetupClubs();
+                gameManager.clubList = MultiplayerManager.instance.clubList;
+                gameManager.teamNum = gameManager.clubList.Count - 1;
 
                 ForgetOriginalCharacters();
                 GameManagerInit();
@@ -157,36 +159,6 @@ namespace CPMod_Multiplayer.HarmonyPatches
                     var unit = GameManager.Instance.PopCharacter(chosen, i + 1, isInitialize: true);
                     Mod.logger.Log($"Pop unit: {(unit != null ? unit.name : "null")}");
                 }
-            }
-        }
-
-        private static void SetupClubs()
-        {
-            if (MultiplayerManager.MultiplayerSession && !MultiplayerManager.MultiplayerFollower)
-            {
-                var clubList = ConstString.ClubName.Keys.Where(k => k != "---")
-                    .ToList();
-
-                var selectedClubs = new List<string>();
-                selectedClubs.Add("---");
-                foreach (var member in LobbyManager.CurrentLobby.Members)
-                {
-                    if (clubList.Contains(member.MemberState.selectedClub))
-                    {
-                        selectedClubs.Add(member.MemberState.selectedClub);
-                        clubList.Remove(member.MemberState.selectedClub);
-                    }
-                    else
-                    {
-                        var randomClub = clubList[Random.Range(0, clubList.Count)];
-                        selectedClubs.Add(randomClub);
-                        clubList.Remove(randomClub);
-                    }
-                }
-
-                Mod.logger.Log("[GameSetupFlow] Set clublist=" + selectedClubs.Join(a=>a,","));
-                GameManager.Instance.clubList = selectedClubs;
-                GameManager.Instance.teamNum = selectedClubs.Count - 1;
             }
         }
 

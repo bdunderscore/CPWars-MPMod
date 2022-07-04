@@ -35,31 +35,23 @@ namespace CPMod_Multiplayer
         
         void Awake()
         {
-            Instance = this;
+            try
+            {
+                Instance = this;
 
-            _socket = ((RemoteLobby) LobbyManager.CurrentLobby).Socket;
+                _socket = LobbyManager.CurrentLobby.HostSocket;
 
-            _connected = true;
+                _connected = true;
+            }
+            catch (Exception e)
+            {
+                Mod.LogException("PuppetClient.Awake", e);
+            }
         }
 
         private void OnDestroy()
         {
             Instance = null;
-        }
-
-        internal void OnConnStatusChanged(SteamNetConnectionStatusChangedCallback_t info)
-        {
-            Mod.logger.Log($"[ConnStatus] {info.m_info.m_eState}");
-
-            switch (info.m_info.m_eState)
-            {
-                case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected:
-                    Mod.logger.Log($"[ConnStatus] Marked connected");
-                    _connected = true;
-                    break;
-                default:
-                    break;
-            }
         }
 
         void FixedUpdate()
@@ -69,59 +61,70 @@ namespace CPMod_Multiplayer
                 return;
             }
 
-            while (_socket.TryReceive(out var pkt))
+            try
             {
-                try
+
+                while (_socket.TryReceive(out var pkt))
                 {
-                    var msg = MessagePackSerializer.Deserialize<NetPacket>(pkt);
-                    IncomingPackets.Enqueue(msg);
-                    //Mod.logger.Log("Received packet: " + msg);
+                    try
+                    {
+                        var msg = MessagePackSerializer.Deserialize<NetPacket>(pkt);
+                        IncomingPackets.Enqueue(msg);
+                        Mod.logger.Log("Received packet: " + msg);
+                    }
+                    catch (Exception e)
+                    {
+                        Mod.logger.LogException("Failed to deserialize message", e);
+                        _connected = false;
+                        return;
+                    }
                 }
-                catch (Exception e)
+
+                if (_socket.ErrorState)
                 {
-                    Mod.logger.LogException("Failed to deserialize message", e);
                     _connected = false;
+                    ErrorWindow.Show("切だんされました。").OnClose = MainSceneManager.Instance.StartTitle;
+                    LobbyManager.CurrentLobby = null;
+                }
+
+                // Only start processing if we have a full packet
+                if (IncomingPackets.All(p => !(p is NetFrameComplete || p is NetGameResult)))
+                {
                     return;
                 }
-            }
 
-            if (_socket.ErrorState)
-            {
-                _connected = false;
-                ErrorWindow.Show("切だんされました。").OnClose = MainSceneManager.Instance.StartTitle;
-                LobbyManager.CurrentLobby = null;
-            }
-            
-            // Only start processing if we have a full packet
-            if (IncomingPackets.All(p => !(p is NetFrameComplete || p is NetGameResult)))
-            {
-                return;
-            }
+                Mod.logger.Log("=== Processing frame ===");
 
-            foreach (var incomingPacket in IncomingPackets)
-            {
-                try
+                foreach (var incomingPacket in IncomingPackets)
                 {
-                    _inReceive = true;
-                    HandlePacket(incomingPacket);
+                    try
+                    {
+                        _inReceive = true;
+                        HandlePacket(incomingPacket);
+                    }
+                    catch (Exception e)
+                    {
+                        Mod.LogException("Failed to handle incoming packet", e);
+                    }
+                    finally
+                    {
+                        _inReceive = false;
+                    }
                 }
-                catch (Exception e)
+
+                IncomingPackets.Clear();
+
+                foreach (var unit in _positionUpdateNeeded)
                 {
-                    Mod.LogException("Failed to handle incoming packet", e);
+                    unit.UpdatePosition();
                 }
-                finally
-                {
-                    _inReceive = false;
-                }
+
+                _positionUpdateNeeded.Clear();
             }
-            
-            IncomingPackets.Clear();
-            
-            foreach (var unit in _positionUpdateNeeded)
+            catch (Exception e)
             {
-                unit.UpdatePosition();
+                Mod.LogException("PuppetClient.FixedUpdate", e);
             }
-            _positionUpdateNeeded.Clear();
         }
 
         void HandlePacket(NetPacket packet)

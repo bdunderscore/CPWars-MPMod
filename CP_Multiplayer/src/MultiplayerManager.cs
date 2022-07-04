@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using CPMod_Multiplayer.LobbyManagement;
+using HarmonyLib;
 using Steamworks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -21,6 +23,8 @@ namespace CPMod_Multiplayer
 
         // We lock these in to ensure they don't revert if we're disconnected later
         private static bool _mpSession, _mpFollower;
+
+        public List<string> clubList { get; set; } = new List<string>();
 
         public static bool MultiplayerSession
         {
@@ -72,6 +76,40 @@ namespace CPMod_Multiplayer
             if (team == MyTeam)
             {
                 GameManager.Instance.Money = money;
+            }
+        }
+        
+        public void SetupClubs(MemberSet members)
+        {
+            try
+            {
+                var availableClubs = ConstString.ClubName.Keys.Where(k => k != "---")
+                    .ToList();
+
+                var selectedClubs = new List<string>();
+                selectedClubs.Add("---");
+                foreach (var member in LobbyManager.CurrentLobby.Members)
+                {
+                    if (availableClubs.Contains(member.MemberState.selectedClub))
+                    {
+                        selectedClubs.Add(member.MemberState.selectedClub);
+                        availableClubs.Remove(member.MemberState.selectedClub);
+                    }
+                    else
+                    {
+                        var randomClub = availableClubs[UnityEngine.Random.Range(0, availableClubs.Count)];
+                        selectedClubs.Add(randomClub);
+                        availableClubs.Remove(randomClub);
+                    }
+                }
+
+                Mod.logger.Log("[MultiplayerManager] Set clublist=" + selectedClubs.Join(a => a, ","));
+                clubList = selectedClubs;
+            }
+            catch (Exception e)
+            {
+                Mod.LogException("SetupClubs", e);
+                throw e;
             }
         }
         
@@ -199,8 +237,15 @@ namespace CPMod_Multiplayer
             }
             else
             {
-                Mod.logger.Log("Creating puppet client");
-                netPuppet.AddComponent<PuppetClient>();
+                try
+                {
+                    Mod.logger.Log("Creating puppet client");
+                    netPuppet.AddComponent<PuppetClient>();
+                }
+                catch (Exception e)
+                {
+                    Mod.LogException("OnEnterGameScene: Create PuppetClient", e);
+                }
             }
         }
 
