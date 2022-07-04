@@ -23,6 +23,9 @@ namespace CPMod_Multiplayer.LobbyManagement
 
     class SteamLobby : Lobby
     {
+        private const string K_SELECTED_CLUB = "pl:club";
+        private const string K_SELECTED_CHARA = "pl:chara:";
+        
         private const int START_TIMEOUT = 20;
         
         private bool _isHost;
@@ -165,16 +168,67 @@ namespace CPMod_Multiplayer.LobbyManagement
                     return;
                 }
 
+                if (isSelf)
+                {
+                    member.OnChange += SendMemberState;
+                }
+
                 _idToMember[steamId] = member;
-                
+
                 SteamInfoLookup.LookupSteamInfo(steamId, (_id, name) =>
                 {
                     member.MemberState.displayName = name;
                     member.RaiseOnChange();
                 });
             }
+
+            if (isSelf) return;
             
+            bool changed = false;
+            var selectedClub = SteamMatchmaking.GetLobbyMemberData(_matchmaker.LobbyId, steamId, K_SELECTED_CLUB);
+            if (string.IsNullOrEmpty(selectedClub))
+            {
+                selectedClub = "random";
+            }
+            if (selectedClub != member.MemberState.selectedClub)
+            {
+                member.MemberState.selectedClub = selectedClub;
+                changed = true;
+            }
+
+            for (int i = 0; i < member.MemberState.characters.Length; i++)
+            {
+                var selectedCharacter =
+                    SteamMatchmaking.GetLobbyMemberData(_matchmaker.LobbyId, steamId, K_SELECTED_CHARA + i);
+                if (string.IsNullOrEmpty(selectedCharacter))
+                {
+                    selectedCharacter = "__random__";
+                }
+
+                if (member.MemberState.characters[i] != selectedCharacter)
+                {
+                    member.MemberState.characters[i] = selectedCharacter;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                member.RaiseOnChange();
+            }
+
             // TODO - sync club members
+        }
+
+        void SendMemberState(LobbyMember _member)
+        {
+            var self = Members.Self;
+            
+            SteamMatchmaking.SetLobbyMemberData(_matchmaker.LobbyId, K_SELECTED_CLUB, self.MemberState.selectedClub);
+            for (int i = 0; i < self.MemberState.characters.Length; i++)
+            {
+                SteamMatchmaking.SetLobbyMemberData(_matchmaker.LobbyId, K_SELECTED_CHARA + i, self.MemberState.characters[i]);
+            }
         }
 
         private void OnLobbyDataUpdate(LobbyDataUpdate_t param)
