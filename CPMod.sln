@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31424.327
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CPMod_HelloWorld", "CPMod_HelloWorld\CPMod_HelloWorld.csproj", "{4D390B54-04C7-43C7-909D-81F73DC0D0FA}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CPMod_Multiplayer", "CP_Multiplayer\CPMod_Multiplayer.csproj", "{3C0F7018-E634-4671-A20D-1958A0AF03C1}"
 EndProject
 Global
@@ -13,10 +11,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4D390B54-04C7-43C7-909D-81F73DC0D0FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4D390B54-04C7-43C7-909D-81F73DC0D0FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4D390B54-04C7-43C7-909D-81F73DC0D0FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4D390B54-04C7-43C7-909D-81F73DC0D0FA}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3C0F7018-E634-4671-A20D-1958A0AF03C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3C0F7018-E634-4671-A20D-1958A0AF03C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3C0F7018-E634-4671-A20D-1958A0AF03C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
