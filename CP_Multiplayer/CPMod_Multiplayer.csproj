@@ -346,9 +346,7 @@
     <Compile Include="src\HarmonyPatches\UnitManagerPatches.cs" />
     <Compile Include="src\HarmonyPatches\UnitPatches.cs" />
     <Compile Include="src\LobbyManagement\LobbyManager.cs" />
-    <Compile Include="src\LobbyManagement\RemoteLobby.cs" />
     <Compile Include="src\LobbyManagement\ErrorWindow.cs" />
-    <Compile Include="src\LobbyManagement\HostedLobby.cs" />
     <Compile Include="src\LobbyManagement\Lobby.cs" />
     <Compile Include="src\LobbyManagement\LobbyMember.cs" />
     <Compile Include="src\LobbyManagement\MemberSet.cs" />
